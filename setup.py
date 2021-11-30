@@ -3,18 +3,10 @@
 from setuptools import setup, find_packages # type: ignore
 import upf
 import setuptools.command.install # type: ignore
-import sys
 
 
 upf_tamer_commit = '29dfa4b3c43ac6da0b97ca89e94450fce19b5681'
 upf_pyperplan_commit = 'ddaf0cee57343638a8af0f1454e2a48dc5aa210f'
-
-
-
-upf_tamer_commit = 'acac3e41f6c47a9971771107a6a9e3f5d39e8131'
-upf_pyperplan_commit = 'ddaf0cee57343638a8af0f1454e2a48dc5aa210f'
-
-
 
 long_description=\
 """============================================================
@@ -22,17 +14,6 @@ long_description=\
  ============================================================
     Insert long description here
 """
-
-class InstallCommand(setuptools.command.install.install):
-  '''Custom install command.'''
-
-  def run(self):
-        print("A"*100)
-        for a in sys.argv:
-            print("B"*100)
-            print(a)
-        assert False
-        setuptools.command.install.install.run(self)
 
 setup(name='upf',
       version=upf.__version__,
@@ -46,9 +27,6 @@ setup(name='upf',
       extras_require={
             'devs': [f'upf_tamer@git+https://github.com/aiplan4eu/tamer-upf.git@{upf_tamer_commit}',
                     f'upf_pyperplan@git+https://github.com/aiplan4eu/pyperplan-upf.git@{upf_pyperplan_commit}']
-        },
-      cmdclass={
-        'install': InstallCommand,
         },
       license='APACHE'
      )
