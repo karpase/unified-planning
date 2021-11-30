@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages # type: ignore
 import upf
-import setuptools.command.install
+import setuptools.command.install # type: ignore
 import sys
 
 
