@@ -11,6 +11,11 @@ upf_pyperplan_commit = 'ddaf0cee57343638a8af0f1454e2a48dc5aa210f'
 
 
 
+upf_tamer_commit = 'acac3e41f6c47a9971771107a6a9e3f5d39e8131'
+upf_pyperplan_commit = 'ddaf0cee57343638a8af0f1454e2a48dc5aa210f'
+
+
+
 long_description=\
 """============================================================
  UPF: A library that unifies planning frameworks
