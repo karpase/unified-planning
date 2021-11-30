@@ -2,7 +2,6 @@
 
 from setuptools import setup, find_packages # type: ignore
 import upf
-import setuptools.command.install # type: ignore
 
 
 upf_tamer_commit = '29dfa4b3c43ac6da0b97ca89e94450fce19b5681'
