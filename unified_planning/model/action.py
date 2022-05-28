@@ -80,6 +80,7 @@ class InstantaneousAction(Action):
                  _env: Environment = None, **kwargs: 'up.model.types.Type'):
         Action.__init__(self, _name, _parameters, _env, **kwargs)
         self._preconditions: List[up.model.fnode.FNode] = []
+        self._preconditions_wait: List[up.model.fnode.FNode] = []
         self._effects: List[up.model.effect.Effect] = []
         self._simulated_effect: Optional[up.model.effect.SimulatedEffect] = None
 
@@ -101,6 +102,10 @@ class InstantaneousAction(Action):
         for c in self.preconditions:
             s.append(f'      {str(c)}\n')
         s.append('    ]\n')
+        s.append('    preconditions_wait = [\n')
+        for c in self.preconditions_wait:
+            s.append(f'      {str(c)}\n')
+        s.append('    ]\n')
         s.append('    effects = [\n')
         for e in self.effects:
             s.append(f'      {str(e)}\n')
@@ -112,7 +117,7 @@ class InstantaneousAction(Action):
     def __eq__(self, oth: object) -> bool:
         if isinstance(oth, InstantaneousAction):
             cond = self._env == oth._env and self._name == oth._name and self._parameters == oth._parameters
-            return cond and set(self._preconditions) == set(oth._preconditions) and set(self._effects) == set(oth._effects) and self._simulated_effect == oth._simulated_effect
+            return cond and set(self._preconditions) == set(oth._preconditions) and set(self._preconditions_wait) == set(oth._preconditions_wait) and set(self._effects) == set(oth._effects) and self._simulated_effect == oth._simulated_effect
         else:
             return False
 
@@ -121,6 +126,8 @@ class InstantaneousAction(Action):
         for ap in self._parameters.items():
             res += hash(ap)
         for p in self._preconditions:
+            res += hash(p)
+        for p in self._preconditions_wait:
             res += hash(p)
         for e in self._effects:
             res += hash(e)
@@ -133,6 +140,7 @@ class InstantaneousAction(Action):
             new_params[param_name] = param.type
         new_instantaneous_action = InstantaneousAction(self._name, new_params, self._env)
         new_instantaneous_action._preconditions = self._preconditions[:]
+        new_instantaneous_action._preconditions_wait = self._preconditions_wait[:]
         new_instantaneous_action._effects = [e.clone() for e in self._effects]
         new_instantaneous_action._simulated_effect = self._simulated_effect
         return new_instantaneous_action
@@ -145,6 +153,15 @@ class InstantaneousAction(Action):
     def clear_preconditions(self):
         """Removes all action preconditions"""
         self._preconditions = []
+
+    @property
+    def preconditions_wait(self) -> List['up.model.fnode.FNode']:
+        """Returns the list of the action wait preconditions."""
+        return self._preconditions_wait
+
+    def clear_preconditions_wait(self):
+        """Removes all action wait preconditions"""
+        self._preconditions_wait = []        
 
     @property
     def effects(self) -> List['up.model.effect.Effect']:
@@ -186,6 +203,18 @@ class InstantaneousAction(Action):
             raise UPUnboundedVariablesError(f"The precondition {str(precondition_exp)} has unbounded variables:\n{str(free_vars)}")
         if precondition_exp not in self._preconditions:
             self._preconditions.append(precondition_exp)
+
+    def add_precondition_wait(self, precondition: Union['up.model.fnode.FNode', 'up.model.fluent.Fluent', 'up.model.parameter.Parameter', bool]):
+        """Adds the given action wait precondition."""
+        precondition_exp, = self._env.expression_manager.auto_promote(precondition)
+        assert self._env.type_checker.get_type(precondition_exp).is_bool_type()
+        if precondition_exp == self._env.expression_manager.TRUE():
+            return
+        free_vars = self._env.free_vars_oracle.get_free_variables(precondition_exp)
+        if len(free_vars) != 0:
+            raise UPUnboundedVariablesError(f"The wait precondition {str(precondition_exp)} has unbounded variables:\n{str(free_vars)}")
+        if precondition_exp not in self._preconditions_wait:
+            self._preconditions_wait.append(precondition_exp)            
 
     def add_effect(self, fluent: Union['up.model.fnode.FNode', 'up.model.fluent.Fluent'],
                    value: 'up.model.expression.Expression', condition: 'up.model.expression.BoolExpression' = True):
@@ -235,6 +264,9 @@ class InstantaneousAction(Action):
 
     def _set_preconditions(self, preconditions: List['up.model.fnode.FNode']):
         self._preconditions = preconditions
+
+    def _set_preconditions_wait(self, preconditions_wait: List['up.model.fnode.FNode']):
+        self._preconditions_wait = preconditions_wait
 
 
 class DurativeAction(Action):
