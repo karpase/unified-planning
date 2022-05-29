@@ -129,8 +129,9 @@ class RobustnessVerifier(Transformer):
         for type in self._problem.user_types:
             self._new_problem._add_user_type(type)
 
-        self._new_problem._add_user_type(UserType("agent"))
-        self._new_problem.user_type("car")._father = UserType("agent")
+        if isinstance(self._problem.agents[0], ExistingObjectAgent):
+            self._new_problem._add_user_type(UserType("agent"))
+            self._new_problem.user_type("car")._father = UserType("agent")
 
 
         
