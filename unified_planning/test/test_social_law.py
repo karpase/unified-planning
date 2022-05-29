@@ -191,7 +191,8 @@ class TestSocialLaws(TestCase):
         at = problem.fluent("at")
         cargoal = at(carobj, unified_planning.model.Object(endloc, loc))
 
-        caragent = Agent("agent-" + name, [cargoal])
+        caragent = Agent("agent-" + name, problem.env)
+        caragent.add_goal(cargoal)
         problem.add_agent(caragent)
         problem.add_goal(cargoal)
 

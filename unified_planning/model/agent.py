@@ -24,9 +24,17 @@ from typing import List
 
 class Agent:
     """This is the agent class."""
-    def __init__(self, _name: str = None, _goals: List['up.model.fnode.FNode'] = []):        
-        self._name = _name
-        self._goals = _goals        
+    def __init__(self, name: str = None, 
+                    env: 'up.environment.Environment' = None,
+                    goals: List['up.model.fnode.FNode'] = []):        
+        self._name = name
+        self._env = env
+        self._goals = goals        
+
+    @property
+    def env(self) -> 'up.environment.Environment':
+        '''Returns the problem environment.'''
+        return self._env
 
     def __eq__(self, oth: object) -> bool:
         return isinstance(oth, Agent) and self._name == oth._name and self._goals == oth._goals
@@ -60,9 +68,12 @@ class Agent:
         """Sets the agent goal."""
         self._goals = new_goals
 
-    def add_goal(self, new_goal: List['up.model.fnode.FNode']):
+    def add_goal(self, goal: List['up.model.fnode.FNode']):
         """Adds a goal to the agent."""
-        self._goals.append(new_goal)
+        goal_exp, = self._env.expression_manager.auto_promote(goal)
+        assert self._env.type_checker.get_type(goal_exp).is_bool_type()
+        if goal_exp != self._env.expression_manager.TRUE():
+            self._goals.append(goal_exp)
 
 def get_agent_name_from_action(action: 'up.model.Action') -> str:
     """Guess the name of an agent performing given action
