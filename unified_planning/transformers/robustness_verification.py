@@ -69,22 +69,20 @@ class RobustnessVerifier(Transformer):
         else:
             return lfact
 
-    def get_waiting_version(self, fact, agent):
-        """get the waiting copy of agent <agent> of given fact
+    def get_waiting_version(self, fact):
+        """get the waiting copy of given fact
         """
-        agent_tuple = (agent),
-
         negate = False
         if fact.is_not():
             negate = True
             fact = fact.arg(0)
-        lfact = self._new_problem._env.expression_manager.FluentExp(
+        wfact = self._new_problem._env.expression_manager.FluentExp(
             self._w_fluent_map[fact.fluent().name], 
-             agent_tuple + fact.args)
+            fact.args)
         if negate:
-            return Not(lfact)
+            return Not(wfact)
         else:
-            return lfact            
+            return wfact            
 
 
     def create_action_copy(self, action, suffix):
@@ -138,7 +136,7 @@ class RobustnessVerifier(Transformer):
         for f in self._problem.fluents:
             g_fluent = Fluent("g-" + f.name, f.type, f.signature)
             l_fluent = Fluent("l-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
-            w_fluent = Fluent("w-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
+            w_fluent = Fluent("w-" + f.name, f.type, f.signature)
             self._g_fluent_map[f.name] = g_fluent
             self._l_fluent_map[f.name] = l_fluent
             self._w_fluent_map[f.name] = w_fluent
@@ -188,9 +186,12 @@ class RobustnessVerifier(Transformer):
             # Success version - affects globals same way as original
             a_s = self.create_action_copy(action, "_s")
             a_s.add_precondition(Not(waiting(agent_object)))
+            for effect in action.effects:
+                if effect.value.is_true():
+                    a_s.add_precondition(Not(self.get_waiting_version(effect.fluent)))
             for fact in action.preconditions + action.preconditions_wait:
                 a_s.add_precondition(self.get_global_version(fact))
-            for effect in action.effects:                
+            for effect in action.effects:
                 a_s.add_effect(self.get_global_version(effect.fluent), effect.value)
             self._new_problem.add_action(a_s)            
 

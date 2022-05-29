@@ -258,7 +258,7 @@ class TestSocialLaws(TestCase):
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'problem.pddl')
         problem = reader.parse_problem(domain_filename, problem_filename)
 
-        self.exercise_problem(problem)
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
     def test_intersection_problem_interface_4cars(self):
         problem = self.create_basic_intersection_problem_interface()
