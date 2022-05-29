@@ -32,6 +32,7 @@ class RobustnessVerifier(Transformer):
         self._new_problem = None      
         self._g_fluent_map = {}
         self._l_fluent_map = {}
+        self._w_fluent_map = {}
         self._agent_objects = {}
         self.act_pred = None
 
@@ -67,6 +68,23 @@ class RobustnessVerifier(Transformer):
             return Not(lfact)
         else:
             return lfact
+
+    def get_waiting_version(self, fact, agent):
+        """get the waiting copy of agent <agent> of given fact
+        """
+        agent_tuple = (agent),
+
+        negate = False
+        if fact.is_not():
+            negate = True
+            fact = fact.arg(0)
+        lfact = self._new_problem._env.expression_manager.FluentExp(
+            self._w_fluent_map[fact.fluent().name], 
+             agent_tuple + fact.args)
+        if negate:
+            return Not(lfact)
+        else:
+            return lfact            
 
 
     def create_action_copy(self, action, suffix):
@@ -107,20 +125,26 @@ class RobustnessVerifier(Transformer):
         failure = Fluent("failure")
         act = Fluent("act")
         fin = Fluent("fin", _signature=[Parameter("a", agent_type)])
+        waiting = Fluent("waiting", _signature=[Parameter("a", agent_type)])
 
         self.act_pred = act
+        
 
         self._new_problem.add_fluent(failure, default_initial_value=False)
         self._new_problem.add_fluent(act, default_initial_value=False)
         self._new_problem.add_fluent(fin, default_initial_value=False)
+        self._new_problem.add_fluent(waiting, default_initial_value=False)
 
         for f in self._problem.fluents:
             g_fluent = Fluent("g-" + f.name, f.type, f.signature)
             l_fluent = Fluent("l-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
+            w_fluent = Fluent("w-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
             self._g_fluent_map[f.name] = g_fluent
             self._l_fluent_map[f.name] = l_fluent
+            self._w_fluent_map[f.name] = w_fluent
             self._new_problem.add_fluent(g_fluent, default_initial_value=False)
             self._new_problem.add_fluent(l_fluent, default_initial_value=False)
+            self._new_problem.add_fluent(w_fluent, default_initial_value=False)
 
         for agent in self._problem.agents:
             agent_object = unified_planning.model.Object(agent.name, agent_type)
@@ -130,15 +154,26 @@ class RobustnessVerifier(Transformer):
             self._new_problem.add_object(agent_object)
 
             end_s = InstantaneousAction("end_s_" + agent.name)
-            for goal in agent.goals:
+            end_s.add_precondition(Not(fin(agent_object)))
+            for goal in agent.goals:                
                 end_s.add_precondition(self.get_global_version(goal))
                 end_s.add_precondition(self.get_local_version(goal, agent_object))
             end_s.add_effect(fin(agent_object), True)
             end_s.add_effect(act, False)
             self._new_problem.add_action(end_s)
 
+            end_w = InstantaneousAction("end_w_" + agent.name)
+            end_w.add_precondition(Not(fin(agent_object)))                
+            end_w.add_precondition(waiting(agent_object))
+            for goal in agent.goals:                
+                end_w.add_precondition(self.get_local_version(goal, agent_object))
+            end_w.add_effect(fin(agent_object), True)
+            end_w.add_effect(act, False)
+            self._new_problem.add_action(end_w)
+
             for i, goal in enumerate(agent.goals):
                 end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
+                end_f.add_precondition(Not(fin(agent_object)))
                 end_f.add_precondition(Not(self.get_global_version(goal)))
                 for goal in agent.goals:
                     end_f.add_precondition(self.get_local_version(goal, agent_object))
@@ -152,20 +187,38 @@ class RobustnessVerifier(Transformer):
 
             # Success version - affects globals same way as original
             a_s = self.create_action_copy(action, "_s")
+            a_s.add_precondition(Not(waiting(agent_object)))
             for fact in action.preconditions + action.preconditions_wait:
                 a_s.add_precondition(self.get_global_version(fact))
             for effect in action.effects:                
                 a_s.add_effect(self.get_global_version(effect.fluent), effect.value)
             self._new_problem.add_action(a_s)            
-            
+
             # Fail version
             for i, fact in enumerate(action.preconditions):
                 a_f = self.create_action_copy(action, "_f_" + str(i))
+                a_f.add_precondition(Not(waiting(agent_object)))
                 for pre in action.preconditions_wait:
                     a_f.add_precondition(self.get_global_version(pre))
                 a_f.add_precondition(Not(self.get_global_version(fact)))
                 a_f.add_effect(failure, True)
                 self._new_problem.add_action(a_f)
+
+            # Wait version
+            for i, fact in enumerate(action.preconditions_wait):
+                a_w = self.create_action_copy(action, "_w_" + str(i))
+                a_w.add_precondition(Not(waiting(agent_object)))
+                a_w.add_precondition(Not(self.get_global_version(fact)))
+                assert not fact.is_not()
+                a_w.add_effect(self.get_waiting_version(fact), True)
+                a_w.add_effect(failure, True)
+                self._new_problem.add_action(a_w)
+
+            # Phantom version
+            for i, fact in enumerate(action.preconditions_wait):
+                a_p = self.create_action_copy(action, "_p_" + str(i))
+                a_p.add_precondition(waiting(agent_object))                
+                self._new_problem.add_action(a_p)
 
 
 
