@@ -19,17 +19,22 @@ An Agent has a name, a goal, and a set of actions.
 
 import unified_planning as up
 from unified_planning.environment import get_env, Environment
+from unified_planning.model.object import Object
 #from unified_planning.model.problem import Problem
 from typing import List
 
 class Agent:
-    """This is the agent class."""
+    """This is the basic agent class.
+        It is implemented as a new object of type agent in the problem
+    """
     def __init__(self, name: str = None, 
                     env: 'up.environment.Environment' = None,
-                    goals: List['up.model.fnode.FNode'] = []):        
+                    goals: List['up.model.fnode.FNode'] = [],
+                    agent_type_name: str = "agent"):
         self._name = name
         self._env = env
-        self._goals = goals        
+        self._goals = goals
+        self._agent_type_name = agent_type_name
 
     @property
     def env(self) -> 'up.environment.Environment':
@@ -37,16 +42,21 @@ class Agent:
         return self._env
 
     def __eq__(self, oth: object) -> bool:
-        return isinstance(oth, Agent) and self._name == oth._name and self._goals == oth._goals
+        return isinstance(oth, Agent) and self._name == oth._name and self._goals == oth._goals and self._agent_type == oth._agent_type
 
     def __hash__(self) -> int:
         return hash(self._name) + hash(self._goals)
 
     def clone(self):
-        return Agent(self._name, self._env, self._goals)
+        return Agent(self._name, self._env, self._goals, self._agent_type)
 
     def __repr__(self) -> str:
         return "Agent [name=" + self._name + ", goal=" + str(self._goals) + "]"
+
+    @property
+    def obj(self) -> 'up.model.object.Object':
+        """Returns the agent object."""
+        return Object(self.name, self.env.type_manager.UserType(self._agent_type_name))
 
     @property
     def name(self) -> str:
@@ -74,6 +84,56 @@ class Agent:
         assert self._env.type_checker.get_type(goal_exp).is_bool_type()
         if goal_exp != self._env.expression_manager.TRUE():
             self._goals.append(goal_exp)
+
+    def add_obj_to_problem(self, problem: 'up.model.problem.Problem'):
+        """adds the agent object to the given problem"""
+        problem.add_object(self.obj)
+
+class ExistingObjectAgent(Agent):
+    """This is an agent class which is implemented as an already existing object.
+        It is mainly used for lifted problems
+    """
+    def __init__(self, obj: 'up.model.object.Object', 
+                    env: 'up.environment.Environment' = None,
+                    goals: List['up.model.fnode.FNode'] = []):
+        Agent.__init__(self, obj.name, env, goals)     
+        self._obj = obj
+
+    @property
+    def obj(self) -> 'up.model.object.Object':
+        """Returns the agent object."""
+        return self._obj
+
+    @obj.setter
+    def set_obj(self, new_obj: 'up.model.object.Object'):
+        """Sets the agent object."""
+        self._obj = new_obj
+
+    def __eq__(self, oth: object) -> bool:
+        return isinstance(oth, ExistingObjectAgent) and self._obj == oth._obj
+
+    def __hash__(self) -> int:
+        return hash(self._obj) + hash(self._goals)
+
+    def clone(self):
+        return ExistingObjectAgent(self._obj, self._env, self._goals)
+
+    def __repr__(self) -> str:
+        return "ExistingObjectAgent [obj=" + str(self._obj) + ", goal=" + str(self._goals) + "]"
+
+    @property
+    def name(self) -> str:
+        """Returns the agent name."""
+        return self.obj.name
+
+    def add_obj_to_problem(self, problem: 'up.model.problem.Problem'):
+        """no need to add the agent object to the given problem, pass"""
+        pass
+  
+
+
+
+
 
 def get_agent_name_from_action(action: 'up.model.Action') -> str:
     """Guess the name of an agent performing given action

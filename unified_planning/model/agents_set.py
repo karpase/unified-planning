@@ -36,9 +36,9 @@ class AgentsSetMixin:
     def add_agent(self, agent: 'up.model.agent.Agent'):
         '''This method adds an Agent'''        
         if agent not in self._agents:
-            t = cast(Agent, agent)
-            if self._has_name_method(t.name):
-                raise UPProblemDefinitionError(f'The agent name {t.name} is already used in the problem')
+            #t = cast(Agent, agent)
+            #if self._has_name_method(t.name):
+            #    raise UPProblemDefinitionError(f'The agent name {t.name} is already used in the problem')
             self._agents.append(agent)
 
     @property

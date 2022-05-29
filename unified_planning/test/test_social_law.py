@@ -260,6 +260,52 @@ class TestSocialLaws(TestCase):
 
         self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
+    def test_intersection_problem_lifted_pddl(self):
+        reader = PDDLReader()
+        
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'domain.pddl')
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'problem.pddl')
+        problem = reader.parse_problem(domain_filename, problem_filename)
+
+        at = problem.fluent("at")
+        a1 = problem.object("a1")
+        a2 = problem.object("a2")
+        a3 = problem.object("a3")
+        a4 = problem.object("a4")
+        northex = problem.object("north-ex")
+        southex = problem.object("south-ex")
+        eastex = problem.object("east-ex")
+        westex = problem.object("west-ex")
+        
+        ac1 = ExistingObjectAgent(a1, problem._env, [at(a1, northex)])
+        ac2 = ExistingObjectAgent(a2, problem._env, [at(a2, southex)])
+        ac3 = ExistingObjectAgent(a3, problem._env, [at(a3, eastex)])
+        ac4 = ExistingObjectAgent(a4, problem._env, [at(a4, westex)])
+
+        problem.add_agent(ac1)
+        problem.add_agent(ac2)
+        problem.add_agent(ac3)
+        problem.add_agent(ac4)
+
+        param_obj = problem.action("drive").parameter("a")
+        agent_a = ExistingObjectAgent(param_obj)
+
+        problem.action("drive").agent = agent_a
+        problem.action("arrive").agent = agent_a
+
+        rv = RobustnessVerifier(problem)
+
+        rv_problem = rv.get_rewritten_problem()
+
+        w = PDDLWriter(rv_problem)
+        with open("kaka_domain_grounded_rv.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("kaka_problem_grounded_rv.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
+
+
     def test_intersection_problem_interface_4cars(self):
         problem = self.create_basic_intersection_problem_interface()
 

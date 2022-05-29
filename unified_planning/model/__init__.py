@@ -15,7 +15,7 @@
 
 
 from unified_planning.model.action import Action, InstantaneousAction, DurativeAction
-from unified_planning.model.agent import Agent
+from unified_planning.model.agent import Agent, ExistingObjectAgent
 from unified_planning.model.effect import Effect, SimulatedEffect, EffectKind
 from unified_planning.model.expression import BoolExpression, Expression, ExpressionManager
 from unified_planning.model.fnode import FNode
@@ -35,7 +35,7 @@ from unified_planning.model.variable import Variable, FreeVarsOracle
 import unified_planning.model.metrics
 
 __all__ = [ 'Action', 'InstantaneousAction', 'DurativeAction',
-            'Agent',
+            'Agent', 'ExistingObjectAgent', 
             'Effect', 'SimulatedEffect', 'EffectKind',
             'BoolExpression', 'Expression', 'ExpressionManager',
             'FNode',
