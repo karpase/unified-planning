@@ -243,8 +243,6 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
-
-
     def test_intersection_problem_pddl_centralized(self):
         reader = PDDLReader()
         

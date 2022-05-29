@@ -66,7 +66,7 @@ class Action:
         """Returns the action agent."""
         return self._agent
 
-    @name.setter
+    @agent.setter
     def agent(self, new_agent: 'up.model.agent.Agent'):
         """Sets the action agent."""
         self._agent = new_agent

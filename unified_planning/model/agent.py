@@ -63,7 +63,7 @@ class Agent:
         """Returns the agent goal."""
         return self._goals
 
-    @name.setter
+    @goals.setter
     def set_goals(self, new_goals: List['up.model.fnode.FNode']):
         """Sets the agent goal."""
         self._goals = new_goals
@@ -105,8 +105,7 @@ def get_agent_name_from_goal(goal: 'up.model.FNode') -> str:
             else:
                 return "null"    
     elif goal.is_and_exp():
-        for subexp in goal.args:
-            get_        
+        return "null"
     else:
         return "null"
     

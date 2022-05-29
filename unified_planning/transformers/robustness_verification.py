@@ -32,18 +32,36 @@ class RobustnessVerifier(Transformer):
         self._new_problem = None      
         self._g_fluent_map = {}
         self._l_fluent_map = {}
-
-
+        self._agent_objects = {}
+    
     def get_global_version(self, fact):
-        return self._new_problem._env.expression_manager.FluentExp(
+        #TODO: there must be a cleaner way to do this...
+        negate = False
+        if fact.is_not():
+            negate = True
+            fact = fact.arg(0)
+        gfact = self._new_problem._env.expression_manager.FluentExp(
             self._g_fluent_map[fact.fluent().name], 
             fact.args)
+        if negate:
+            return Not(gfact)
+        else:
+            return gfact
 
     def get_local_version(self, fact, agent):
         agent_tuple = (agent),
-        return self._new_problem._env.expression_manager.FluentExp(
+
+        negate = False
+        if fact.is_not():
+            negate = True
+            fact = fact.arg(0)
+        lfact = self._new_problem._env.expression_manager.FluentExp(
             self._l_fluent_map[fact.fluent().name], 
              agent_tuple + fact.args)
+        if negate:
+            return Not(lfact)
+        else:
+            return lfact
 
 
     def get_rewritten_problem(self) -> Problem:
@@ -52,7 +70,6 @@ class RobustnessVerifier(Transformer):
         '''
         if self._new_problem is not None:
             return self._new_problem
-        #NOTE that a different environment might be needed when multi-threading
         self._new_problem = Problem(f'{self._name}_{self._problem.name}')
 
 
@@ -83,6 +100,9 @@ class RobustnessVerifier(Transformer):
 
         for agent in self._problem.agents:
             agent_object = unified_planning.model.Object(agent.name, agent_type)
+
+            self._agent_objects[agent.name] = agent_object
+
             self._new_problem.add_object(agent_object)
 
             end_s = InstantaneousAction("end_s_" + agent.name)
@@ -90,17 +110,47 @@ class RobustnessVerifier(Transformer):
                 end_s.add_precondition(self.get_global_version(goal))
                 end_s.add_precondition(self.get_local_version(goal, agent_object))
             end_s.add_effect(fin(agent_object), True)
+            end_s.add_effect(act, False)
             self._new_problem.add_action(end_s)
-
 
             for i, goal in enumerate(agent.goals):
                 end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
                 end_f.add_precondition(Not(self.get_global_version(goal)))
                 for goal in agent.goals:
-                    #end_s.add_precondition(self.get_global_version(goal))
                     end_f.add_precondition(self.get_local_version(goal, agent_object))
                 end_f.add_effect(fin(agent_object), True)
+                end_f.add_effect(act, False)
+                end_f.add_effect(failure, True)
                 self._new_problem.add_action(end_f)
+        
+        for action in self._problem.actions:
+            agent_object = self._agent_objects[action.agent.name]
+            if len(action.parameters) == 0:
+                a_s = InstantaneousAction(action.name + "_s")
+                a_f = InstantaneousAction(action.name + "_f")
+                a_w = InstantaneousAction(action.name + "_w")
+            else:
+                a_s = InstantaneousAction(action.name + "_s", _parameters=action.parameters)
+                a_f = InstantaneousAction(action.name + "_f", _parameters=action.parameters)
+                a_w = InstantaneousAction(action.name + "_w", _parameters=action.parameters)
+
+            a_s.add_precondition(act)
+            a_f.add_precondition(act)
+            a_w.add_precondition(act)
+
+            #TODO: can probably do this better with a substitution walker
+            for fact in action.preconditions:
+                a_s.add_precondition(self.get_global_version(fact))
+                a_s.add_precondition(self.get_local_version(fact, agent_object))
+            for effect in action.effects:                
+                a_s.add_effect(self.get_global_version(effect.fluent), effect.value)
+                a_s.add_effect(self.get_local_version(effect.fluent, agent_object), effect.value)
+
+
+
+            self._new_problem.add_action(a_s)
+            self._new_problem.add_action(a_f)
+            self._new_problem.add_action(a_w)
 
         
         # for action in self._new_problem.actions:
