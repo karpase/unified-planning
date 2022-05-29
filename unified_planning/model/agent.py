@@ -123,6 +123,7 @@ def defineAgentsByFirstArg(problem: 'up.model.Problem') -> List[Agent]:
 
         action.agent = agents[agent_name]
 
+    #TODO: there must be a better way to do this using a walker
     atomic_goals = []
     for goal in problem.goals:
         if goal.is_and():
