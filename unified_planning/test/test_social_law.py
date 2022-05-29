@@ -198,7 +198,7 @@ class TestSocialLaws(TestCase):
         problem.add_goal(cargoal)
 
 
-    def exercise_problem(self, problem : unified_planning.model.Problem):
+    def exercise_problem(self, problem : unified_planning.model.Problem, expected_robustness_result : up.solvers.PlanGenerationResultStatus):
         w = PDDLWriter(problem)
         with open("kaka_domain.pddl","w") as f:
             print(w.get_domain(), file = f)
@@ -229,7 +229,7 @@ class TestSocialLaws(TestCase):
 
         unified_planning.model.agent.defineAgentsByFirstArg(ground_problem)
 
-        self.assertEqual(len(ground_problem.agents), 4)
+        #self.assertEqual(len(ground_problem.agents), 4)
 
         rv = RobustnessVerifier(ground_problem)
 
@@ -243,7 +243,15 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
-    def test_intersection_problem_pddl_centralized(self):
+        with OneshotPlanner(name='tamer') as planner:
+            result = planner.solve(rv_problem)
+            self.assertEqual(result.status, expected_robustness_result)
+
+
+            
+        
+
+    def test_intersection_problem_pddl(self):
         reader = PDDLReader()
         
         domain_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'domain.pddl')
@@ -252,7 +260,7 @@ class TestSocialLaws(TestCase):
 
         self.exercise_problem(problem)
 
-    def test_intersection_problem_interface_centralized(self):
+    def test_intersection_problem_interface_4cars(self):
         problem = self.create_basic_intersection_problem_interface()
 
         self.add_car(problem, "c1", "south-ent", "north-ex", "north")
@@ -260,6 +268,22 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east")
         self.add_car(problem, "c4", "east-ent", "west-ex", "west")
 
-        self.exercise_problem(problem)
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+
+    def test_intersection_problem_interface_2cars_cross(self):
+        problem = self.create_basic_intersection_problem_interface()
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north")
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east")
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)        
+
+    def test_intersection_problem_interface_2cars_opposite(self):
+        problem = self.create_basic_intersection_problem_interface()
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north")
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south")
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN)        
 
 

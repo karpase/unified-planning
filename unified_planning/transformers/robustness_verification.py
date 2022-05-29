@@ -131,7 +131,7 @@ class RobustnessVerifier(Transformer):
         
 
         self._new_problem.add_fluent(failure, default_initial_value=False)
-        self._new_problem.add_fluent(act, default_initial_value=False)
+        self._new_problem.add_fluent(act, default_initial_value=True)
         self._new_problem.add_fluent(fin, default_initial_value=False)
         self._new_problem.add_fluent(waiting, default_initial_value=False)
 
@@ -220,53 +220,17 @@ class RobustnessVerifier(Transformer):
                 a_p.add_precondition(waiting(agent_object))                
                 self._new_problem.add_action(a_p)
 
+        # Initial state
+        for var, val in self._problem.initial_values.items():
+            self._new_problem.set_initial_value(self.get_global_version(var), val)
+            for agent in self._problem.agents:
+                agent_object = unified_planning.model.Object(agent.name, agent_type)
+                self._new_problem.set_initial_value(self.get_local_version(var, agent_object), val)
 
-
-            
-
-        
-        # for action in self._new_problem.actions:
-        #     if isinstance(action, InstantaneousAction):
-        #         original_action = self._problem.action(action.name)
-        #         assert isinstance(original_action, InstantaneousAction)
-        #         action.name = self.get_fresh_name(action.name)
-        #         action.clear_preconditions()
-        #         for p in original_action.preconditions:
-        #             action.add_precondition(self._expression_quantifier_remover.remove_quantifiers(p, self._problem))
-        #         for e in action.effects:
-        #             if e.is_conditional():
-        #                 e.set_condition(self._expression_quantifier_remover.remove_quantifiers(e.condition, self._problem))
-        #             e.set_value(self._expression_quantifier_remover.remove_quantifiers(e.value, self._problem))
-        #         self._old_to_new[original_action] = [action]
-        #         self._new_to_old[action] = original_action
-        #     elif isinstance(action, DurativeAction):
-        #         original_action = self._problem.action(action.name)
-        #         assert isinstance(original_action, DurativeAction)
-        #         action.name = self.get_fresh_name(action.name)
-        #         action.clear_conditions()
-        #         for i, cl in original_action.conditions.items():
-        #             for c in cl:
-        #                 action.add_condition(i, self._expression_quantifier_remover.remove_quantifiers(c, self._problem))
-        #         for t, el in action.effects.items():
-        #             for e in el:
-        #                 if e.is_conditional():
-        #                     e.set_condition(self._expression_quantifier_remover.remove_quantifiers(e.condition, self._problem))
-        #                 e.set_value(self._expression_quantifier_remover.remove_quantifiers(e.value, self._problem))
-        #         self._old_to_new[original_action] = [action]
-        #         self._new_to_old[action] = original_action
-        #     else:
-        #         raise NotImplementedError
-        # for t, el in self._new_problem.timed_effects.items():
-        #     for e in el:
-        #         if e.is_conditional():
-        #             e.set_condition(self._expression_quantifier_remover.remove_quantifiers(e.condition, self._problem))
-        #         e.set_value(self._expression_quantifier_remover.remove_quantifiers(e.value, self._problem))
-        # for i, gl in self._problem.timed_goals.items():
-        #     for g in gl:
-        #         ng = self._expression_quantifier_remover.remove_quantifiers(g, self._problem)
-        #         self._new_problem.add_timed_goal(i, ng)
-        # for g in self._problem.goals:
-        #     ng = self._expression_quantifier_remover.remove_quantifiers(g, self._problem)
-        #     self._new_problem.add_goal(ng)
-        # return self._new_problem
+        # Goal
+        self._new_problem.add_goal(failure)
+        for agent in self._problem.agents:
+            agent_object = unified_planning.model.Object(agent.name, agent_type)
+            self._new_problem.add_goal(fin(agent_object))
+                
         return self._new_problem
