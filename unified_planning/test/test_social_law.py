@@ -20,6 +20,7 @@ import unified_planning
 from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
+from unified_planning.model import Agent
 
 
 # (define (domain intersection)
@@ -188,7 +189,11 @@ class TestSocialLaws(TestCase):
         problem.set_initial_value(traveldirection(carobj, unified_planning.model.Object(cardirection, direction)), True)
 
         at = problem.fluent("at")
-        problem.add_goal(at(carobj, unified_planning.model.Object(endloc, loc)))
+        cargoal = at(carobj, unified_planning.model.Object(endloc, loc))
+
+        caragent = Agent("agent-" + name, [cargoal])
+        problem.add_agent(caragent)
+        problem.add_goal(cargoal)
 
     def test_intersection_problem_pddl_centralized(self):
         reader = PDDLReader()

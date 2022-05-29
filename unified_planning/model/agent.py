@@ -24,24 +24,21 @@ from typing import List
 
 class Agent:
     """This is the agent class."""
-    def __init__(self, _name: str = None, _env: 'up.environment.Environment' = None,
-                 _goals: List['up.model.fnode.FNode'] = [], _actions: List['up.model.Action'] = []):
-        self._env = get_env(_env)
+    def __init__(self, _name: str = None, _goals: List['up.model.fnode.FNode'] = []):        
         self._name = _name
-        self._goals = _goals
-        self._actions = _actions
+        self._goals = _goals        
 
     def __eq__(self, oth: object) -> bool:
-        return isinstance(oth, Agent) and self._env == oth._env and self._name == oth._name and self._actions == oth._actions and self._goals == oth._goals
+        return isinstance(oth, Agent) and self._name == oth._name and self._goals == oth._goals
 
     def __hash__(self) -> int:
-        return hash(self._name) + hash(self._goals) + hash(self._actions)
+        return hash(self._name) + hash(self._goals)
 
     def clone(self):
-        return Agent(self._name, self._env, self._goals, self._actions)
+        return Agent(self._name, self._env, self._goals)
 
     def __repr__(self) -> str:
-        return "Agent [name=" + self._name + ", goal=" + str(self._goals) + ", actions=" + str(self._actions) + "]"
+        return "Agent [name=" + self._name + ", goal=" + str(self._goals) + "]"
 
     @property
     def name(self) -> str:
@@ -59,20 +56,13 @@ class Agent:
         return self._goals
 
     @name.setter
-    def name(self, new_goals: List['up.model.fnode.FNode']):
+    def set_goals(self, new_goals: List['up.model.fnode.FNode']):
         """Sets the agent goal."""
         self._goals = new_goals
 
-    @property
-    def actions(self) -> List['up.model.Action']:
-        """Returns the agent actions."""
-        return self._actions
-
-    @name.setter
-    def name(self, new_actions: List['up.model.Action']):
-        """Sets the agent actions."""
-        self._actions = new_actions
-
+    def add_goal(self, new_goal: List['up.model.fnode.FNode']):
+        """Adds a goal to the agent."""
+        self._goals.append(new_goal)
 
 def get_agent_name_from_action(action: 'up.model.Action') -> str:
     """Guess the name of an agent performing given action

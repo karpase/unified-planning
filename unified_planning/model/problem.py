@@ -20,6 +20,7 @@ from unified_planning.model.actions_set import ActionsSetMixin
 from unified_planning.model.fluents_set import FluentsSetMixin
 from unified_planning.model.objects_set import ObjectsSetMixin
 from unified_planning.model.user_types_set import UserTypesSetMixin
+from unified_planning.model.agents_set import AgentsSetMixin
 from unified_planning.model.expression import ConstantExpression
 from unified_planning.model.operators import OperatorKind
 from unified_planning.model.types import domain_size, domain_item
@@ -30,12 +31,13 @@ from fractions import Fraction
 from typing import Iterator, List, Dict, Set, Union, Optional, cast
 
 
-class Problem(AbstractProblem, UserTypesSetMixin, FluentsSetMixin, ActionsSetMixin, ObjectsSetMixin):
+class Problem(AbstractProblem, UserTypesSetMixin, FluentsSetMixin, ActionsSetMixin, ObjectsSetMixin, AgentsSetMixin):
     '''Represents a, action based planning problem.'''
     def __init__(self, name: str = None, env: 'up.environment.Environment' = None, *,
                  initial_defaults: Dict['up.model.types.Type', 'ConstantExpression'] = {}):
         AbstractProblem.__init__(self, name, env)
         UserTypesSetMixin.__init__(self, self.has_name)
+        AgentsSetMixin.__init__(self, self.has_name)
         FluentsSetMixin.__init__(self, self.env, self._add_user_type, self.has_name, initial_defaults)
         ActionsSetMixin.__init__(self, self.env, self._add_user_type, self.has_name)
         ObjectsSetMixin.__init__(self, self.env, self._add_user_type, self.has_name)
