@@ -32,6 +32,7 @@ class Action:
                  _env: Environment = None, **kwargs: 'up.model.types.Type'):
         self._env = get_env(_env)
         self._name = _name
+        self._agent = None
         self._parameters: 'OrderedDict[str, up.model.parameter.Parameter]' = OrderedDict()
         if _parameters is not None:
             assert len(kwargs) == 0
@@ -59,6 +60,16 @@ class Action:
     def name(self, new_name: str):
         """Sets the parameter name."""
         self._name = new_name
+
+    @property
+    def agent(self) -> 'up.model.agent.Agent':
+        """Returns the action agent."""
+        return self._agent
+
+    @name.setter
+    def agent(self, new_agent: 'up.model.agent.Agent'):
+        """Sets the action agent."""
+        self._agent = new_agent
 
     @property
     def parameters(self) -> List['up.model.parameter.Parameter']:

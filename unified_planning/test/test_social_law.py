@@ -191,10 +191,45 @@ class TestSocialLaws(TestCase):
         at = problem.fluent("at")
         cargoal = at(carobj, unified_planning.model.Object(endloc, loc))
 
-        caragent = Agent("agent-" + name, problem.env)
-        caragent.add_goal(cargoal)
-        problem.add_agent(caragent)
+        #caragent = Agent("agent-" + name, problem.env)
+        #caragent.add_goal(cargoal)
+        #problem.add_agent(caragent)
         problem.add_goal(cargoal)
+
+
+    def exercise_problem(self, problem : unified_planning.model.Problem):
+        w = PDDLWriter(problem)
+        with open("kaka_domain.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("kaka_problem.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
+
+        with OneshotPlanner(name='tamer') as planner:
+            result = planner.solve(problem)
+            self.assertEquals(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+
+        grounder = Grounder(problem_kind=problem.kind)
+        grounding_result = grounder.ground(problem)
+        ground_problem = grounding_result.problem
+
+        w = PDDLWriter(ground_problem)
+        with open("kaka_domain_grounded.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("kaka_problem_grounded.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
+
+        with OneshotPlanner(name='tamer') as planner:
+            result = planner.solve(ground_problem)
+            self.assertEquals(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+
+        unified_planning.model.agent.defineAgentsByFirstArg(ground_problem)
+
+        self.assertEqual(len(ground_problem.agents), 4)
+
 
     def test_intersection_problem_pddl_centralized(self):
         reader = PDDLReader()
@@ -203,37 +238,16 @@ class TestSocialLaws(TestCase):
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'problem.pddl')
         problem = reader.parse_problem(domain_filename, problem_filename)
 
-        w = PDDLWriter(problem)
-        with open("kaka_domain.pddl","w") as f:
-            print(w.get_domain(), file = f)
-            f.close()
-        with open("kaka_problem.pddl","w") as f:
-            print(w.get_problem(), file = f)
-            f.close()
-
-        with OneshotPlanner(name='tamer') as planner:
-            result = planner.solve(problem)
-            self.assertEquals(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
-
+        self.exercise_problem(problem)
 
     def test_intersection_problem_interface_centralized(self):
         problem = self.create_basic_intersection_problem_interface()
 
         self.add_car(problem, "c1", "south-ent", "north-ex", "north")
-        #self.add_car(problem, "c2", "north-ent", "south-ex", "south")
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south")
         self.add_car(problem, "c3", "west-ent", "east-ex", "east")
-        #self.add_car(problem, "c4", "east-ent", "west-ex", "west")
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west")
 
-        with OneshotPlanner(name='tamer') as planner:
-            result = planner.solve(problem)
-            self.assertEquals(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+        self.exercise_problem(problem)
 
-        w = PDDLWriter(problem)
-        with open("kaka_domain.pddl","w") as f:
-            print(w.get_domain(), file = f)
-            f.close()
-        with open("kaka_problem.pddl","w") as f:
-            print(w.get_problem(), file = f)
-            f.close()
-        
 

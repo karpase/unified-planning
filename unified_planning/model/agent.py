@@ -97,13 +97,16 @@ def get_agent_name_from_goal(goal: 'up.model.FNode') -> str:
     """
     if goal.is_fluent_exp():
         f = goal.fluent()
-        if len(f.signature) > 0:
-            return f.signature[0]
+        if len(goal.args) > 0:
+            return str(goal.arg(0))
         else:
             if "_" in f.name:
                 return f.name.split("_")[1]
             else:
-                return "null"            
+                return "null"    
+    elif goal.is_and_exp():
+        for subexp in goal.args:
+            get_        
     else:
         return "null"
     
@@ -113,19 +116,27 @@ def defineAgentsByFirstArg(problem: 'up.model.Problem') -> List[Agent]:
     agents = {}
     
     for action in problem.actions:
-        agent_name = get_agent_name_from_action(action)
+        agent_name = "agent-" + get_agent_name_from_action(action)
 
         if agent_name not in agents.keys():
-            agents[agent_name] = Agent(agent_name, problem.env, [], [])
+            agents[agent_name] = Agent(agent_name, problem.env, [])
 
-        agents[agent_name].actions.append(action)
+        action.agent = agents[agent_name]
 
+    atomic_goals = []
     for goal in problem.goals:
-        agent_name = get_agent_name_from_goal(goal)
+        if goal.is_and():
+            atomic_goals += goal.args
+        elif goal.is_fluent_exp():
+            atomic_goals.append(goal)
+
+    for goal in atomic_goals:
+        agent_name = "agent-" + get_agent_name_from_goal(goal)
 
         if agent_name not in agents.keys():
-            agents[agent_name] = Agent(agent_name, problem.env, [], [])
+            agents[agent_name] = Agent(agent_name, problem.env, [])
 
-        agents[agent_name].goals.append(goal)
+        agents[agent_name].add_goal(goal)
 
-    return agents.values()
+    for agent in agents.values():
+        problem.add_agent(agent)
