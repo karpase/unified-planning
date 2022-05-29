@@ -30,6 +30,21 @@ class RobustnessVerifier(Transformer):
     def __init__(self, problem: Problem, name: str = 'slrob'):
         Transformer.__init__(self, problem, name)  
         self._new_problem = None      
+        self._g_fluent_map = {}
+        self._l_fluent_map = {}
+
+
+    def get_global_version(self, fact):
+        return self._new_problem._env.expression_manager.FluentExp(
+            self._g_fluent_map[fact.fluent().name], 
+            fact.args)
+
+    def get_local_version(self, fact, agent):
+        agent_tuple = (agent),
+        return self._new_problem._env.expression_manager.FluentExp(
+            self._l_fluent_map[fact.fluent().name], 
+             agent_tuple + fact.args)
+
 
     def get_rewritten_problem(self) -> Problem:
         '''Creates a problem that implements the social law robustness verification compliation from Karpas, Shleyfman, Tennenholtz, ICAPS 2017 
@@ -47,6 +62,8 @@ class RobustnessVerifier(Transformer):
         for type in self._problem.user_types:
             self._new_problem._add_user_type(type)
 
+        self._new_problem.add_objects(self._problem.all_objects)
+
 
         failure = Fluent("failure")
         act = Fluent("act")
@@ -56,14 +73,34 @@ class RobustnessVerifier(Transformer):
         self._new_problem.add_fluent(act, default_initial_value=False)
         self._new_problem.add_fluent(fin, default_initial_value=False)
 
-
         for f in self._problem.fluents:
             g_fluent = Fluent("g-" + f.name, f.type, f.signature)
             l_fluent = Fluent("l-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
+            self._g_fluent_map[f.name] = g_fluent
+            self._l_fluent_map[f.name] = l_fluent
             self._new_problem.add_fluent(g_fluent, default_initial_value=False)
             self._new_problem.add_fluent(l_fluent, default_initial_value=False)
 
+        for agent in self._problem.agents:
+            agent_object = unified_planning.model.Object(agent.name, agent_type)
+            self._new_problem.add_object(agent_object)
 
+            end_s = InstantaneousAction("end_s_" + agent.name)
+            for goal in agent.goals:
+                end_s.add_precondition(self.get_global_version(goal))
+                end_s.add_precondition(self.get_local_version(goal, agent_object))
+            end_s.add_effect(fin(agent_object), True)
+            self._new_problem.add_action(end_s)
+
+
+            for i, goal in enumerate(agent.goals):
+                end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
+                end_f.add_precondition(Not(self.get_global_version(goal)))
+                for goal in agent.goals:
+                    #end_s.add_precondition(self.get_global_version(goal))
+                    end_f.add_precondition(self.get_local_version(goal, agent_object))
+                end_f.add_effect(fin(agent_object), True)
+                self._new_problem.add_action(end_f)
 
         
         # for action in self._new_problem.actions:

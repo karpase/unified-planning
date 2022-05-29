@@ -21,6 +21,7 @@ from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.model import Agent
+from unified_planning.transformers import RobustnessVerifier
 
 
 # (define (domain intersection)
@@ -208,7 +209,7 @@ class TestSocialLaws(TestCase):
 
         with OneshotPlanner(name='tamer') as planner:
             result = planner.solve(problem)
-            self.assertEquals(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
         grounder = Grounder(problem_kind=problem.kind)
         grounding_result = grounder.ground(problem)
@@ -224,11 +225,24 @@ class TestSocialLaws(TestCase):
 
         with OneshotPlanner(name='tamer') as planner:
             result = planner.solve(ground_problem)
-            self.assertEquals(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
         unified_planning.model.agent.defineAgentsByFirstArg(ground_problem)
 
         self.assertEqual(len(ground_problem.agents), 4)
+
+        rv = RobustnessVerifier(ground_problem)
+
+        rv_problem = rv.get_rewritten_problem()
+
+        w = PDDLWriter(rv_problem)
+        with open("kaka_domain_grounded_rv.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("kaka_problem_grounded_rv.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
+
 
 
     def test_intersection_problem_pddl_centralized(self):
