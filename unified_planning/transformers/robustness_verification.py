@@ -33,8 +33,11 @@ class RobustnessVerifier(Transformer):
         self._g_fluent_map = {}
         self._l_fluent_map = {}
         self._agent_objects = {}
-    
+        self.act_pred = None
+
     def get_global_version(self, fact):
+        """get the global copy of given fact
+        """
         #TODO: there must be a cleaner way to do this...
         negate = False
         if fact.is_not():
@@ -49,6 +52,8 @@ class RobustnessVerifier(Transformer):
             return gfact
 
     def get_local_version(self, fact, agent):
+        """get the local copy of agent <agent> of given fact
+        """
         agent_tuple = (agent),
 
         negate = False
@@ -63,6 +68,23 @@ class RobustnessVerifier(Transformer):
         else:
             return lfact
 
+
+    def create_action_copy(self, action, suffix):
+        """Create a new copy of an action, with name action_name_suffix, and duplicates the local preconditions/effects
+        """
+        agent_object = self._agent_objects[action.agent.name]
+        if len(action.parameters) == 0:
+            new_action = InstantaneousAction(action.name + suffix)
+        else:
+            new_action = InstantaneousAction(action.name + suffix, action.parameters)
+        new_action.add_precondition(self.act_pred)
+        
+        #TODO: can probably do this better with a substitution walker
+        for fact in action.preconditions + action.preconditions_wait:
+            new_action.add_precondition(self.get_local_version(fact, agent_object))
+        for effect in action.effects:                
+            new_action.add_effect(self.get_local_version(effect.fluent, agent_object), effect.value)
+        return new_action
 
     def get_rewritten_problem(self) -> Problem:
         '''Creates a problem that implements the social law robustness verification compliation from Karpas, Shleyfman, Tennenholtz, ICAPS 2017 
@@ -85,6 +107,8 @@ class RobustnessVerifier(Transformer):
         failure = Fluent("failure")
         act = Fluent("act")
         fin = Fluent("fin", _signature=[Parameter("a", agent_type)])
+
+        self.act_pred = act
 
         self._new_problem.add_fluent(failure, default_initial_value=False)
         self._new_problem.add_fluent(act, default_initial_value=False)
@@ -125,32 +149,27 @@ class RobustnessVerifier(Transformer):
         
         for action in self._problem.actions:
             agent_object = self._agent_objects[action.agent.name]
-            if len(action.parameters) == 0:
-                a_s = InstantaneousAction(action.name + "_s")
-                a_f = InstantaneousAction(action.name + "_f")
-                a_w = InstantaneousAction(action.name + "_w")
-            else:
-                a_s = InstantaneousAction(action.name + "_s", _parameters=action.parameters)
-                a_f = InstantaneousAction(action.name + "_f", _parameters=action.parameters)
-                a_w = InstantaneousAction(action.name + "_w", _parameters=action.parameters)
 
-            a_s.add_precondition(act)
-            a_f.add_precondition(act)
-            a_w.add_precondition(act)
-
-            #TODO: can probably do this better with a substitution walker
-            for fact in action.preconditions:
+            # Success version - affects globals same way as original
+            a_s = self.create_action_copy(action, "_s")
+            for fact in action.preconditions + action.preconditions_wait:
                 a_s.add_precondition(self.get_global_version(fact))
-                a_s.add_precondition(self.get_local_version(fact, agent_object))
             for effect in action.effects:                
                 a_s.add_effect(self.get_global_version(effect.fluent), effect.value)
-                a_s.add_effect(self.get_local_version(effect.fluent, agent_object), effect.value)
+            self._new_problem.add_action(a_s)            
+            
+            # Fail version
+            for i, fact in enumerate(action.preconditions):
+                a_f = self.create_action_copy(action, "_f_" + str(i))
+                for pre in action.preconditions_wait:
+                    a_f.add_precondition(self.get_global_version(pre))
+                a_f.add_precondition(Not(self.get_global_version(fact)))
+                a_f.add_effect(failure, True)
+                self._new_problem.add_action(a_f)
 
 
 
-            self._new_problem.add_action(a_s)
-            self._new_problem.add_action(a_f)
-            self._new_problem.add_action(a_w)
+            
 
         
         # for action in self._new_problem.actions:
