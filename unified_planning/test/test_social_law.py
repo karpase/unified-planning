@@ -207,7 +207,7 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
-        with OneshotPlanner(name='tamer') as planner:
+        with OneshotPlanner(problem_kind=problem.kind) as planner:
             result = planner.solve(problem)
             self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
@@ -223,7 +223,7 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
-        with OneshotPlanner(name='tamer') as planner:
+        with OneshotPlanner(problem_kind=problem.kind) as planner:
             result = planner.solve(ground_problem)
             self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
@@ -243,7 +243,7 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
-        with OneshotPlanner(name='tamer') as planner:
+        with OneshotPlanner(problem_kind=rv_problem.kind) as planner:
             result = planner.solve(rv_problem)
             self.assertEqual(result.status, expected_robustness_result)
 
