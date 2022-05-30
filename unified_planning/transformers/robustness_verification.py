@@ -95,10 +95,7 @@ class RobustnessVerifier(Transformer):
                 d[p.name] = p.type
             new_action = InstantaneousAction(action.name + suffix, _parameters=d)
 
-        if action.agent.name == "a":
-            agent_object = new_action.parameters[0]
-        else:
-            agent_object = action.agent.obj
+        agent_object = action.agent.obj
 
         new_action.add_precondition(self.act_pred)
         
@@ -197,10 +194,7 @@ class RobustnessVerifier(Transformer):
                 self._new_problem.add_action(end_f)
         
         for action in self._problem.actions:
-            if action.agent.name == "a":
-                agent_object = action.parameters[0]
-            else:
-                agent_object = action.agent.obj
+            agent_object = action.agent.obj
 
             # Success version - affects globals same way as original
             a_s = self.create_action_copy(action, "_s")
