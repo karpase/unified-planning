@@ -21,7 +21,7 @@ from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.model import Agent
-from unified_planning.transformers import RobustnessVerifier
+from unified_planning.transformers import RobustnessVerifier, NegativeConditionsRemover
 
 
 # (define (domain intersection)
@@ -109,6 +109,8 @@ class TestSocialLaws(TestCase):
         arrive.add_effect(at(a,l), True)
         arrive.add_effect(free(l), False)
         arrive.add_effect(arrived(a), True)
+        arrive.agent = ExistingObjectAgent(a)
+
 
 
         #   (:action drive
@@ -146,6 +148,7 @@ class TestSocialLaws(TestCase):
         drive.add_effect(free(l2), False)
         drive.add_effect(at(a,l1), False)
         drive.add_effect(free(l1), True)
+        drive.agent = ExistingObjectAgent(a)
 
         problem = Problem('intersection')
         problem.add_fluent(at, default_initial_value=False)
@@ -175,7 +178,7 @@ class TestSocialLaws(TestCase):
         return problem
 
 
-    def add_car(self, problem : unified_planning.model.Problem, name : str , startloc : str, endloc : str, cardirection : str):
+    def add_car(self, problem : unified_planning.model.Problem, name : str , startloc : str, endloc : str, cardirection : str, add_object : bool):
         cartype = problem.user_type("car")
         loc = problem.user_type("loc")
         direction = problem.user_type("direction")
@@ -197,13 +200,21 @@ class TestSocialLaws(TestCase):
         #problem.add_agent(caragent)
         problem.add_goal(cargoal)
 
+        caragent = ExistingObjectAgent(carobj, problem._env, [cargoal])
+        problem.add_agent(caragent)
 
-    def exercise_problem(self, problem : unified_planning.model.Problem, expected_robustness_result : up.solvers.PlanGenerationResultStatus):
+
+    def exercise_problem(self,                 
+                problem : unified_planning.model.Problem, 
+                expected_robustness_result : up.solvers.PlanGenerationResultStatus,
+                perform_grounding : bool,
+                infer_agents: bool,
+                prefix : str):
         w = PDDLWriter(problem)
-        with open("kaka_domain.pddl","w") as f:
+        with open(prefix + "_domain.pddl","w") as f:
             print(w.get_domain(), file = f)
             f.close()
-        with open("kaka_problem.pddl","w") as f:
+        with open(prefix + "_problem.pddl","w") as f:
             print(w.get_problem(), file = f)
             f.close()
 
@@ -211,40 +222,58 @@ class TestSocialLaws(TestCase):
             result = planner.solve(problem)
             self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
-        grounder = Grounder(problem_kind=problem.kind)
-        grounding_result = grounder.ground(problem)
-        ground_problem = grounding_result.problem
+        ref_problem = problem
 
-        w = PDDLWriter(ground_problem)
-        with open("kaka_domain_grounded.pddl","w") as f:
-            print(w.get_domain(), file = f)
-            f.close()
-        with open("kaka_problem_grounded.pddl","w") as f:
-            print(w.get_problem(), file = f)
-            f.close()
+        if perform_grounding:
+            grounder = Grounder(problem_kind=problem.kind)
+            grounding_result = grounder.ground(problem)
+            ground_problem = grounding_result.problem
 
-        with OneshotPlanner(problem_kind=problem.kind) as planner:
-            result = planner.solve(ground_problem)
-            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+            ref_problem = ground_problem
 
-        unified_planning.model.agent.defineAgentsByFirstArg(ground_problem)
+            w = PDDLWriter(ground_problem)
+            with open(prefix + "_domain_grounded.pddl","w") as f:
+                print(w.get_domain(), file = f)
+                f.close()
+            with open(prefix + "_problem_grounded.pddl","w") as f:
+                print(w.get_problem(), file = f)
+                f.close()
+
+            with OneshotPlanner(problem_kind=problem.kind) as planner:
+                result = planner.solve(ground_problem)
+                self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+
+        if infer_agents:
+            unified_planning.model.agent.defineAgentsByFirstArg(ref_problem)
 
         #self.assertEqual(len(ground_problem.agents), 4)
 
-        rv = RobustnessVerifier(ground_problem)
+        rv = RobustnessVerifier(ref_problem)
 
         rv_problem = rv.get_rewritten_problem()
 
         w = PDDLWriter(rv_problem)
-        with open("kaka_domain_grounded_rv.pddl","w") as f:
+        with open(prefix + "_domain_rv.pddl","w") as f:
             print(w.get_domain(), file = f)
             f.close()
-        with open("kaka_problem_grounded_rv.pddl","w") as f:
+        with open(prefix + "_problem_rv.pddl","w") as f:
             print(w.get_problem(), file = f)
             f.close()
 
-        with OneshotPlanner(problem_kind=rv_problem.kind) as planner:
-            result = planner.solve(rv_problem)
+
+        ncr = NegativeConditionsRemover(rv_problem)
+        ncr_rv_problem = ncr.get_rewritten_problem()
+
+        w = PDDLWriter(ncr_rv_problem)
+        with open(prefix + "_domain_ncr_rv.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open(prefix + "_problem_ncr_rv.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()        
+
+        with OneshotPlanner(problem_kind=ncr_rv_problem.kind) as planner:
+            result = planner.solve(ncr_rv_problem)
             self.assertEqual(result.status, expected_robustness_result)
 
 
@@ -305,31 +334,74 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
+        ncr = NegativeConditionsRemover(rv_problem)
+        ncr_rv_problem = ncr.get_rewritten_problem()
+
+        w = PDDLWriter(ncr_rv_problem)
+        with open("kaka_domain_grounded_ncr_rv.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("kaka_problem_grounded_ncr_rv.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()        
+
+        with OneshotPlanner(problem_kind=ncr_rv_problem.kind) as planner:
+            result = planner.solve(ncr_rv_problem)
+            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+
+
+
 
     def test_intersection_problem_interface_4cars(self):
         problem = self.create_basic_intersection_problem_interface()
 
-        self.add_car(problem, "c1", "south-ent", "north-ex", "north")
-        self.add_car(problem, "c2", "north-ent", "south-ex", "south")
-        self.add_car(problem, "c3", "west-ent", "east-ex", "east")
-        self.add_car(problem, "c4", "east-ent", "west-ex", "west")
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", False)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", False)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", False)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "int4cars")
 
     def test_intersection_problem_interface_2cars_cross(self):
         problem = self.create_basic_intersection_problem_interface()
 
-        self.add_car(problem, "c1", "south-ent", "north-ex", "north")
-        self.add_car(problem, "c3", "west-ent", "east-ex", "east")
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", False)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)        
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "int2cars_cross")        
 
     def test_intersection_problem_interface_2cars_opposite(self):
         problem = self.create_basic_intersection_problem_interface()
 
-        self.add_car(problem, "c1", "south-ent", "north-ex", "north")
-        self.add_car(problem, "c2", "north-ent", "south-ex", "south")
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", False)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN)        
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, True, True, "int2cars_opp")
+
+    def test_intersection_problem_interface_lifted_4cars(self):
+        problem = self.create_basic_intersection_problem_interface()
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl4cars")
+
+    def test_intersection_problem_interface_lifted_2cars_cross(self):
+        problem = self.create_basic_intersection_problem_interface()
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl2cars_cross")
+
+    def test_intersection_problem_interface_lifted_2cars_opposite(self):
+        problem = self.create_basic_intersection_problem_interface()
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, False, False, "intl2cars_opp")  
 
 
