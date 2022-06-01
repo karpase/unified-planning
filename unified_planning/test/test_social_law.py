@@ -35,7 +35,7 @@ class TestSocialLaws(TestCase):
     def setUp(self):
         TestCase.setUp(self)
 
-    def create_basic_intersection_problem_interface(self) -> unified_planning.model.Problem:
+    def create_basic_intersection_problem_interface(self, use_waiting : bool = False) -> unified_planning.model.Problem:
         #  (:types
         #   direction loc agent - object
         #   car - agent            
@@ -61,7 +61,7 @@ class TestSocialLaws(TestCase):
         start = Fluent('start', _signature=[Parameter('a', car), Parameter('l', loc)])        
         traveldirection = Fluent('traveldirection', _signature=[Parameter('a', car), Parameter('d', direction)])
         connected = Fluent('connected', _signature=[Parameter('l1', loc), Parameter('l2', loc), Parameter('d', direction)])
-        #yieldsto = Fluent('traveldirection', _signature=[Parameter('l1', loc), Parameter('l2', loc)])
+        #
 
 
         #  (:constants
@@ -139,7 +139,10 @@ class TestSocialLaws(TestCase):
         d = drive.parameter('d')
         ly = drive.parameter('ly')
         drive.add_precondition(at(a,l1))
-        drive.add_precondition(free(l2))
+        if use_waiting:
+            drive.add_precondition_wait(free(l2))
+        else:
+            drive.add_precondition(free(l2))
         drive.add_precondition(traveldirection(a,d))
         drive.add_precondition(connected(l1,l2,d))
         #drive.add_precondition(yieldsto(l1,ly))
@@ -202,6 +205,32 @@ class TestSocialLaws(TestCase):
 
         caragent = ExistingObjectAgent(carobj, problem._env, [cargoal])
         problem.add_agent(caragent)
+
+    def add_yields(self, problem : unified_planning.model.Problem, yields_list : List):
+        loc = problem.user_type("loc")
+        yieldsto = Fluent('yieldsto', _signature=[Parameter('l1', loc), Parameter('l2', loc)])
+        problem.add_fluent(yieldsto, default_initial_value=False)
+
+        free = problem.fluent("free")
+        drive = problem.action("drive")
+        l1 = drive.parameter('l1')
+        ly = drive.parameter('ly')
+        drive.add_precondition_wait(yieldsto(l1,ly))
+        drive.add_precondition_wait(free(ly))
+
+        dummy_loc = unified_planning.model.Object("dummy", loc)
+        problem.add_object(dummy_loc)
+
+        yields = set()
+        for l1_name, ly_name in yields_list:
+            problem.set_initial_value(yieldsto(problem.object(l1_name), problem.object(ly_name)), True)                
+            yields.add(problem.object(l1_name))
+        for l1 in problem.objects(loc):
+            if l1 not in yields:
+                problem.set_initial_value(yieldsto(l1, dummy_loc), True)                
+        
+
+
 
 
     def exercise_problem(self,                 
@@ -415,4 +444,40 @@ class TestSocialLaws(TestCase):
 
         self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, False, False, "intl2cars_opp")  
 
+
+    def test_intersection_problem_interface_lifted_4cars_deadlock(self):
+        problem = self.create_basic_intersection_problem_interface(use_waiting=True)
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl4cars_dl")
+
+    def test_intersection_problem_interface_lifted_4cars_yield_deadlock(self):
+        problem = self.create_basic_intersection_problem_interface(use_waiting=True)
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+
+        self.add_yields(problem, [("south-ent", "east-ent"),("east-ent", "north-ent"),("north-ent", "west-ent"),("west-ent", "south-ent")])
+        
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl4cars_yield_dl")
+
+    def test_intersection_problem_interface_lifted_4cars_yield_robust(self):
+        problem = self.create_basic_intersection_problem_interface(use_waiting=True)
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+
+        self.add_yields(problem, [("south-ent", "east-ent"),("north-ent", "west-ent")])
+        
+
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, False, False, "intl4cars_yield_robust")
 
