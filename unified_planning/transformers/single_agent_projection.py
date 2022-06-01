@@ -59,6 +59,7 @@ class SingleAgentProjection(ActionBasedTransformer):
             else:
                 # Don't know how to handle case of agents of multiple types
                 assert agent_type == agent.obj.type
+            agent.add_obj_to_problem(self._new_problem)
 
         active_agent = Fluent("active-agent", _signature=[Parameter("a", agent_type)])
         self._new_problem.add_fluent(active_agent, default_initial_value=False)
