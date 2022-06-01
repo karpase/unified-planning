@@ -19,3 +19,4 @@ from unified_planning.transformers.grounder import Grounder
 from unified_planning.transformers.quantifiers_remover import QuantifiersRemover
 from unified_planning.transformers.negative_conditions_remover import NegativeConditionsRemover
 from unified_planning.transformers.robustness_verification import RobustnessVerifier
+from unified_planning.transformers.single_agent_projection import SingleAgentProjection
