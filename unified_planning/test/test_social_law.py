@@ -277,9 +277,6 @@ class TestSocialLaws(TestCase):
             self.assertEqual(result.status, expected_robustness_result)
 
 
-            
-        
-
     def test_intersection_problem_pddl(self):
         reader = PDDLReader()
         
@@ -308,8 +305,8 @@ class TestSocialLaws(TestCase):
         
         ac1 = ExistingObjectAgent(a1, problem._env, [at(a1, northex)])
         ac2 = ExistingObjectAgent(a2, problem._env, [at(a2, southex)])
-        ac3 = ExistingObjectAgent(a3, problem._env, [at(a3, eastex)])
-        ac4 = ExistingObjectAgent(a4, problem._env, [at(a4, westex)])
+        ac3 = ExistingObjectAgent(a3, problem._env, [at(a3, westex)])
+        ac4 = ExistingObjectAgent(a4, problem._env, [at(a4, eastex)])
 
         problem.add_agent(ac1)
         problem.add_agent(ac2)
@@ -327,10 +324,10 @@ class TestSocialLaws(TestCase):
         rv_problem = rv.get_rewritten_problem()
 
         w = PDDLWriter(rv_problem)
-        with open("kaka_domain_grounded_rv.pddl","w") as f:
+        with open("pddll4cars_domain_rv.pddl","w") as f:
             print(w.get_domain(), file = f)
             f.close()
-        with open("kaka_problem_grounded_rv.pddl","w") as f:
+        with open("pddll4cars_problem_rv.pddl","w") as f:
             print(w.get_problem(), file = f)
             f.close()
 
@@ -338,10 +335,10 @@ class TestSocialLaws(TestCase):
         ncr_rv_problem = ncr.get_rewritten_problem()
 
         w = PDDLWriter(ncr_rv_problem)
-        with open("kaka_domain_grounded_ncr_rv.pddl","w") as f:
+        with open("pddll4cars_domain_ncr_rv.pddl","w") as f:
             print(w.get_domain(), file = f)
             f.close()
-        with open("kaka_problem_grounded_ncr_rv.pddl","w") as f:
+        with open("pddll4cars_problem_ncr_rv.pddl","w") as f:
             print(w.get_problem(), file = f)
             f.close()        
 
