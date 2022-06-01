@@ -21,7 +21,7 @@ from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.model import Agent
-from unified_planning.transformers import RobustnessVerifier, NegativeConditionsRemover
+from unified_planning.transformers import RobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection
 
 
 # (define (domain intersection)
@@ -247,6 +247,20 @@ class TestSocialLaws(TestCase):
             unified_planning.model.agent.defineAgentsByFirstArg(ref_problem)
 
         #self.assertEqual(len(ground_problem.agents), 4)
+
+        for i, agent in enumerate(ref_problem.agents):
+            sap = SingleAgentProjection(ref_problem, agent)
+            sap_problem = sap.get_rewritten_problem()
+            w = PDDLWriter(sap_problem)
+            with open(prefix + "_domain_sap_" + str(i) + ".pddl","w") as f:
+                print(w.get_domain(), file = f)
+                f.close()
+            with open(prefix + "_problem_sap_" + str(i) + ".pddl","w") as f:
+                print(w.get_problem(), file = f)
+                f.close()
+            with OneshotPlanner(problem_kind=sap_problem.kind) as planner:
+                result = planner.solve(sap_problem)
+                self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
         rv = RobustnessVerifier(ref_problem)
 

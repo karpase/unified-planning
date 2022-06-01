@@ -16,7 +16,7 @@
 
 import unified_planning as up
 from unified_planning.transformers.ab_transformer import ActionBasedTransformer
-from unified_planning.model import Fluent, Problem, InstantaneousAction, DurativeAction, FNode, Action, Effect, Timing, Agent
+from unified_planning.model import Fluent, Problem, InstantaneousAction, DurativeAction, FNode, Action, Effect, Timing, Agent, ExistingObjectAgent, Parameter
 from unified_planning.walkers.identitydag import IdentityDagWalker
 from unified_planning.exceptions import UPExpressionDefinitionError, UPProblemDefinitionError
 from typing import List, Dict, Union
@@ -47,15 +47,26 @@ class SingleAgentProjection(ActionBasedTransformer):
         if self._new_problem is not None:
             return self._new_problem
 
-        #NOTE that a different environment might be needed when multi-threading
-        self._new_problem = Problem(f'{self._name}_{self._problem.name}', self._env)
-        for o in self._problem.all_objects:
-            self._new_problem.add_object(o)
-        assert self._new_problem is not None
 
-        name_action_map: Dict[str, Union[InstantaneousAction, DurativeAction]] = {}
+        self._new_problem = self._problem.clone()
+        self._new_problem.name = f'{self._name}_{self._problem.name}'
+
+
+        agent_type = None        
+        for agent in self._problem.agents:            
+            if agent_type is None:
+                agent_type = agent.obj.type
+            else:
+                # Don't know how to handle case of agents of multiple types
+                assert agent_type == agent.obj.type
+
+        active_agent = Fluent("active-agent", _signature=[Parameter("a", agent_type)])
+        self._new_problem.add_fluent(active_agent, default_initial_value=False)
+        self._new_problem.set_initial_value(active_agent(self.agent.obj), True)
+
+        self._new_problem.clear_actions()
         for action in self._problem.actions:
-            if action.agent == self.agent:
+            if action.agent == self.agent or isinstance(action.agent, ExistingObjectAgent):
                 if isinstance(action, InstantaneousAction):
                     new_action = action.clone()
                     new_action.name = self.get_fresh_name(action.name)
@@ -64,6 +75,10 @@ class SingleAgentProjection(ActionBasedTransformer):
                         new_action.add_precondition(p)
                     for p in action.preconditions_wait:                    
                         new_action.add_precondition(p)
+                    new_action.clear_preconditions_wait()
+                    new_action.add_precondition(active_agent(action.agent.obj))
+
+                    self._new_problem.add_action(new_action)
                     self._old_to_new[action] = [new_action]
                     self._new_to_old[new_action] = action
                 elif isinstance(action, DurativeAction):
@@ -82,15 +97,10 @@ class SingleAgentProjection(ActionBasedTransformer):
                     #self._new_to_old[new_durative_action] = action
                 else:
                     raise NotImplementedError
+                
 
-        for t, el in self._problem.timed_effects.items():
-            for e in el:
-                self._new_problem._add_effect_instance(t, e.clone())
 
-        for i, gl in self._problem.timed_goals.items():
-            for g in gl:                
-                self._new_problem.add_timed_goal(i, gl)
-
+        self._new_problem.goals.clear()
         for g in self.agent.goals:            
             self._new_problem.add_goal(g)
 

@@ -42,7 +42,7 @@ class Agent:
         return self._env
 
     def __eq__(self, oth: object) -> bool:
-        return isinstance(oth, Agent) and self._name == oth._name and self._goals == oth._goals and self._agent_type == oth._agent_type
+        return isinstance(oth, Agent) and self._name == oth._name and self._goals == oth._goals and self._agent_type_name == oth._agent_type_name
 
     def __hash__(self) -> int:
         return hash(self._name) + hash(self._goals)
