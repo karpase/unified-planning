@@ -95,19 +95,17 @@ class RobustnessVerifier(Transformer):
                 d[p.name] = p.type
             new_action = InstantaneousAction(action.name + suffix, _parameters=d)
 
-        agent_object = action.agent.obj
-
         new_action.add_precondition(self.act_pred)
         
         #TODO: can probably do this better with a substitution walker
         for fact in action.preconditions + action.preconditions_wait:
             if fact.is_and():
                 for f in fact.args:
-                    new_action.add_precondition(self.get_local_version(f, agent_object))
+                    new_action.add_precondition(self.get_local_version(f, action.agent.obj))
             else:
-                new_action.add_precondition(self.get_local_version(fact, agent_object))
+                new_action.add_precondition(self.get_local_version(fact, action.agent.obj))
         for effect in action.effects:                
-            new_action.add_effect(self.get_local_version(effect.fluent, agent_object), effect.value)
+            new_action.add_effect(self.get_local_version(effect.fluent, action.agent.obj), effect.value)
         return new_action
 
     def get_rewritten_problem(self) -> Problem:
@@ -120,22 +118,30 @@ class RobustnessVerifier(Transformer):
 
 
         
-        agent_type = self._problem.agents[0].obj.type
-        self._new_problem._add_user_type(agent_type)
+        
 
+        # Add types
         for type in self._problem.user_types:
             self._new_problem._add_user_type(type)
 
-        if isinstance(self._problem.agents[0], ExistingObjectAgent):
-            self._new_problem._add_user_type(UserType("agent"))
-            self._new_problem.user_type("car")._father = UserType("agent")
+        # Add type for agent (if needed) and objects for agents
+        agent_type = None        
+        for agent in self._problem.agents:
+            if not self._new_problem.has_type(agent.obj.type.name):
+                self._new_problem._add_user_type(agent.obj.type)
+            if agent_type is None:
+                agent_type = agent.obj.type
+            else:
+                # Don't know how to handle case of agents of multiple types
+                assert agent_type == agent.obj.type
+
+            agent.add_obj_to_problem(self._new_problem)
 
 
-        
-
+        # Add objects other
         self._new_problem.add_objects(self._problem.all_objects)
 
-
+        # Add fluents
         failure = Fluent("failure")
         act = Fluent("act")
         fin = Fluent("fin", _signature=[Parameter("a", agent_type)])
@@ -143,7 +149,6 @@ class RobustnessVerifier(Transformer):
 
         self.act_pred = act
         
-
         self._new_problem.add_fluent(failure, default_initial_value=False)
         self._new_problem.add_fluent(act, default_initial_value=True)
         self._new_problem.add_fluent(fin, default_initial_value=False)
@@ -160,45 +165,42 @@ class RobustnessVerifier(Transformer):
             self._new_problem.add_fluent(l_fluent, default_initial_value=False)
             self._new_problem.add_fluent(w_fluent, default_initial_value=False)
 
-        for agent in self._problem.agents:
-            agent_object = agent.obj
-            agent.add_obj_to_problem(self._new_problem)
 
+        # Add actions
+        for agent in self._problem.agents:
             end_s = InstantaneousAction("end_s_" + agent.name)
-            end_s.add_precondition(Not(fin(agent_object)))
+            end_s.add_precondition(Not(fin(agent.obj)))
             for goal in agent.goals:                
                 end_s.add_precondition(self.get_global_version(goal))
-                end_s.add_precondition(self.get_local_version(goal, agent_object))
-            end_s.add_effect(fin(agent_object), True)
+                end_s.add_precondition(self.get_local_version(goal, agent.obj))
+            end_s.add_effect(fin(agent.obj), True)
             end_s.add_effect(act, False)
             self._new_problem.add_action(end_s)
 
             end_w = InstantaneousAction("end_w_" + agent.name)
-            end_w.add_precondition(Not(fin(agent_object)))                
-            end_w.add_precondition(waiting(agent_object))
+            end_w.add_precondition(Not(fin(agent.obj)))                
+            end_w.add_precondition(waiting(agent.obj))
             for goal in agent.goals:                
-                end_w.add_precondition(self.get_local_version(goal, agent_object))
-            end_w.add_effect(fin(agent_object), True)
+                end_w.add_precondition(self.get_local_version(goal, agent.obj))
+            end_w.add_effect(fin(agent.obj), True)
             end_w.add_effect(act, False)
             self._new_problem.add_action(end_w)
 
             for i, goal in enumerate(agent.goals):
                 end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
-                end_f.add_precondition(Not(fin(agent_object)))
+                end_f.add_precondition(Not(fin(agent.obj)))
                 end_f.add_precondition(Not(self.get_global_version(goal)))
                 for goal in agent.goals:
-                    end_f.add_precondition(self.get_local_version(goal, agent_object))
-                end_f.add_effect(fin(agent_object), True)
+                    end_f.add_precondition(self.get_local_version(goal, agent.obj))
+                end_f.add_effect(fin(agent.obj), True)
                 end_f.add_effect(act, False)
                 end_f.add_effect(failure, True)
                 self._new_problem.add_action(end_f)
         
         for action in self._problem.actions:
-            agent_object = action.agent.obj
-
             # Success version - affects globals same way as original
             a_s = self.create_action_copy(action, "_s")
-            a_s.add_precondition(Not(waiting(agent_object)))
+            a_s.add_precondition(Not(waiting(agent.obj)))
             for effect in action.effects:
                 if effect.value.is_true():
                     a_s.add_precondition(Not(self.get_waiting_version(effect.fluent)))
@@ -222,7 +224,7 @@ class RobustnessVerifier(Transformer):
             # Fail version
             for i, fact in enumerate(real_preconds):
                 a_f = self.create_action_copy(action, "_f_" + str(i))
-                a_f.add_precondition(Not(waiting(agent_object)))
+                a_f.add_precondition(Not(waiting(agent.obj)))
                 for pre in action.preconditions_wait:
                     a_f.add_precondition(self.get_global_version(pre))
                 a_f.add_precondition(Not(self.get_global_version(fact)))
@@ -232,7 +234,7 @@ class RobustnessVerifier(Transformer):
             # Wait version
             for i, fact in enumerate(action.preconditions_wait):
                 a_w = self.create_action_copy(action, "_w_" + str(i))
-                a_w.add_precondition(Not(waiting(agent_object)))
+                a_w.add_precondition(Not(waiting(agent.obj)))
                 a_w.add_precondition(Not(self.get_global_version(fact)))
                 assert not fact.is_not()
                 a_w.add_effect(self.get_waiting_version(fact), True)
@@ -242,20 +244,18 @@ class RobustnessVerifier(Transformer):
             # Phantom version
             for i, fact in enumerate(action.preconditions_wait):
                 a_p = self.create_action_copy(action, "_p_" + str(i))
-                a_p.add_precondition(waiting(agent_object))                
+                a_p.add_precondition(waiting(agent.obj))                
                 self._new_problem.add_action(a_p)
 
         # Initial state
         for var, val in self._problem.initial_values.items():
             self._new_problem.set_initial_value(self.get_global_version(var), val)
-            for agent in self._problem.agents:
-                agent_object = unified_planning.model.Object(agent.name, agent_type)
-                self._new_problem.set_initial_value(self.get_local_version(var, agent_object), val)
+            for agent in self._problem.agents:                
+                self._new_problem.set_initial_value(self.get_local_version(var, agent.obj), val)
 
         # Goal
         self._new_problem.add_goal(failure)
-        for agent in self._problem.agents:
-            agent_object = unified_planning.model.Object(agent.name, agent_type)
-            self._new_problem.add_goal(fin(agent_object))
+        for agent in self._problem.agents:            
+            self._new_problem.add_goal(fin(agent.obj))
                 
         return self._new_problem

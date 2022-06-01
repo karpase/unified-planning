@@ -287,7 +287,7 @@ class TestSocialLaws(TestCase):
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'problem.pddl')
         problem = reader.parse_problem(domain_filename, problem_filename)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "pddl4cars")
 
     def test_intersection_problem_lifted_pddl(self):
         reader = PDDLReader()
