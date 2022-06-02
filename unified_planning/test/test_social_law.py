@@ -21,7 +21,7 @@ from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.model import Agent
-from unified_planning.transformers import RobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection
+from unified_planning.transformers import RobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection, SocialLaw
 
 
 # (define (domain intersection)
@@ -426,7 +426,11 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars")
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
+
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_FAIL)
 
     def test_intersection_problem_interface_lifted_2cars_cross(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -434,7 +438,11 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl2cars_cross")
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
+
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_FAIL)
 
     def test_intersection_problem_interface_lifted_2cars_opposite(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -442,7 +450,11 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
         self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, False, False, "intl2cars_opp")  
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
+
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.ROBUST_RATIONAL)
 
 
     def test_intersection_problem_interface_lifted_4cars_deadlock(self):
@@ -453,7 +465,11 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars_dl")
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
+
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
 
     def test_intersection_problem_interface_lifted_4cars_yield_deadlock(self):
         problem = self.create_basic_intersection_problem_interface(use_waiting=True)
@@ -468,6 +484,13 @@ class TestSocialLaws(TestCase):
 
         self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars_yield_dl")
 
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
+
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
+
+
     def test_intersection_problem_interface_lifted_4cars_yield_robust(self):
         problem = self.create_basic_intersection_problem_interface(use_waiting=True)
 
@@ -478,6 +501,9 @@ class TestSocialLaws(TestCase):
 
         self.add_yields(problem, [("south-ent", "east-ent"),("north-ent", "west-ent")])
         
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, False, False, "intl4cars_yield_robust")
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.ROBUST_RATIONAL)
 
