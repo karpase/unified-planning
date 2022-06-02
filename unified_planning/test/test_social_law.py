@@ -215,7 +215,7 @@ class TestSocialLaws(TestCase):
         drive = problem.action("drive")
         l1 = drive.parameter('l1')
         ly = drive.parameter('ly')
-        drive.add_precondition_wait(yieldsto(l1,ly))
+        drive.add_precondition(yieldsto(l1,ly))
         drive.add_precondition_wait(free(ly))
 
         dummy_loc = unified_planning.model.Object("dummy", loc)
@@ -268,9 +268,9 @@ class TestSocialLaws(TestCase):
                 print(w.get_problem(), file = f)
                 f.close()
 
-            with OneshotPlanner(problem_kind=problem.kind) as planner:
-                result = planner.solve(ground_problem)
-                self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+            #with OneshotPlanner(problem_kind=problem.kind) as planner:
+            #    result = planner.solve(ground_problem)
+            #    self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
         if infer_agents:
             unified_planning.model.agent.defineAgentsByFirstArg(ref_problem)
@@ -287,9 +287,9 @@ class TestSocialLaws(TestCase):
             with open(prefix + "_problem_sap_" + str(i) + ".pddl","w") as f:
                 print(w.get_problem(), file = f)
                 f.close()
-            with OneshotPlanner(problem_kind=sap_problem.kind) as planner:
-                result = planner.solve(sap_problem)
-                self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+            #with OneshotPlanner(problem_kind=sap_problem.kind) as planner:
+            #    result = planner.solve(sap_problem)
+            #    self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
         rv = RobustnessVerifier(ref_problem)
 
@@ -315,7 +315,7 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()        
 
-        with OneshotPlanner(problem_kind=ncr_rv_problem.kind) as planner:
+        with OneshotPlanner(name='fast_downward_optimal') as planner: #problem_kind=ncr_rv_problem.kind) as planner:
             result = planner.solve(ncr_rv_problem)
             self.assertEqual(result.status, expected_robustness_result)
 
@@ -385,9 +385,9 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()        
 
-        with OneshotPlanner(problem_kind=ncr_rv_problem.kind) as planner:
+        with OneshotPlanner(name='fast_downward_optimal') as planner: #problem_kind=ncr_rv_problem.kind) as planner:
             result = planner.solve(ncr_rv_problem)
-            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
+            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY)
 
 
 
@@ -400,7 +400,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", False)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "int4cars")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, True, True, "int4cars")
 
     def test_intersection_problem_interface_2cars_cross(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -408,7 +408,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", False)
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "int2cars_cross")        
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, True, True, "int2cars_cross")        
 
     def test_intersection_problem_interface_2cars_opposite(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -426,7 +426,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl4cars")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars")
 
     def test_intersection_problem_interface_lifted_2cars_cross(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -434,7 +434,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl2cars_cross")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl2cars_cross")
 
     def test_intersection_problem_interface_lifted_2cars_opposite(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -453,7 +453,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl4cars_dl")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars_dl")
 
     def test_intersection_problem_interface_lifted_4cars_yield_deadlock(self):
         problem = self.create_basic_intersection_problem_interface(use_waiting=True)
@@ -466,7 +466,7 @@ class TestSocialLaws(TestCase):
         self.add_yields(problem, [("south-ent", "east-ent"),("east-ent", "north-ent"),("north-ent", "west-ent"),("west-ent", "south-ent")])
         
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, False, False, "intl4cars_yield_dl")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars_yield_dl")
 
     def test_intersection_problem_interface_lifted_4cars_yield_robust(self):
         problem = self.create_basic_intersection_problem_interface(use_waiting=True)
