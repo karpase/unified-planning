@@ -438,6 +438,8 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
 
+        self.add_yields(problem, [])
+
         planner = OneshotPlanner(name='fast_downward')
         l = SocialLaw(problem, planner)
         status = l.is_robust()
@@ -449,6 +451,8 @@ class TestSocialLaws(TestCase):
 
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
         self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+
+        self.add_yields(problem, [])
 
         planner = OneshotPlanner(name='fast_downward')
         l = SocialLaw(problem, planner)
@@ -465,6 +469,8 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
 
+        self.add_yields(problem, [])
+    
         planner = OneshotPlanner(name='fast_downward')
         l = SocialLaw(problem, planner)
         status = l.is_robust()
@@ -481,9 +487,6 @@ class TestSocialLaws(TestCase):
 
         self.add_yields(problem, [("south-ent", "east-ent"),("east-ent", "north-ent"),("north-ent", "west-ent"),("west-ent", "south-ent")])
         
-
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, False, False, "intl4cars_yield_dl")
-
         planner = OneshotPlanner(name='fast_downward')
         l = SocialLaw(problem, planner)
         status = l.is_robust()

@@ -25,6 +25,7 @@ from unified_planning.model import Problem, InstantaneousAction, DurativeAction,
 from unified_planning.plan import Plan
 from typing import List, Dict
 from enum import Enum, auto
+from unified_planning.io import PDDLWriter, PDDLReader
 
 
 class SocialLawRobustnessStatus(Enum):
@@ -69,6 +70,15 @@ class SocialLaw(Transformer):
         problem = self.get_rewritten_problem()        
         rv = RobustnessVerifier(problem)
         rv_problem = rv.get_rewritten_problem()
+
+        w = PDDLWriter(rv_problem)
+        with open("domain_rv.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("problem_rv.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
+
 
         result = self.get_planner().solve(rv_problem)
         if result.status in unified_planning.solvers.results.POSITIVE_OUTCOMES:
