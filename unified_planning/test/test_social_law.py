@@ -494,7 +494,7 @@ class TestSocialLaws(TestCase):
         self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
 
 
-    def test_intersection_problem_interface_lifted_4cars_yield_robust(self):
+    def test_intersection_problem_interface_lifted_4cars_yield_deadlock(self):
         problem = self.create_basic_intersection_problem_interface(use_waiting=True)
 
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
@@ -508,5 +508,92 @@ class TestSocialLaws(TestCase):
         l = SocialLaw(problem, planner)
         status = l.is_robust()
 
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
+
+
+    def test_intersection_problem_interface_lifted_4cars_yield_robust(self):
+        problem = self.create_basic_intersection_problem_interface(use_waiting=True)
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+
+        self.add_yields(problem, [("south-ent", "cross-ne"),("north-ent", "cross-sw"),("east-ent", "cross-nw"),("west-ent", "cross-se")])
+        
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(problem, planner)
+        status = l.is_robust()
+
         self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.ROBUST_RATIONAL)
+
+    def test_counterexample(self):
+        p = Problem("counterexample")
+
+        f1 = Fluent("f1")
+        nf1 = Fluent("nf1")
+        f2 = Fluent("f2")
+        nf2 = Fluent("nf2")
+        f3 = Fluent("f3")
+        nf3 = Fluent("nf3")
+        p.add_fluent(f1, default_initial_value=True)
+        p.add_fluent(nf1, default_initial_value=False)
+        p.add_fluent(f2, default_initial_value=False)
+        p.add_fluent(nf2, default_initial_value=True)
+        p.add_fluent(f3, default_initial_value=True)
+        p.add_fluent(nf3, default_initial_value=False)
+
+        ag1 = Agent("ag1", p.env, [], "agent")
+        ag1.add_goal(nf1)
+        ag2 = Agent("ag2", p.env, [], "agent")
+        ag2.add_goal(f2)
+        p.add_agent(ag1)
+        p.add_agent(ag2)
+
+        a11 = InstantaneousAction("a11")
+        a11.agent = ag1
+        a11.add_precondition_wait(f3)
+        a11.add_effect(f3, True)
+        p.add_action(a11)
+
+        a12 = InstantaneousAction("a12")
+        a12.agent = ag1
+        a12.add_effect(f1, False)
+        a12.add_effect(f3, False)
+        a12.add_effect(nf1, True)
+        a12.add_effect(nf3, True)
+        p.add_action(a12)
+
+
+        a21 = InstantaneousAction("a21")
+        a21.agent = ag2
+        a21.add_effect(f2, True)
+        a21.add_effect(f3, True)
+        a21.add_effect(nf2, False)
+        a21.add_effect(nf3, False)
+        p.add_action(a21)
+
+        a22 = InstantaneousAction("a22")
+        a22.agent = ag2        
+        a22.add_effect(f3, False)
+        a22.add_effect(nf3, True)
+        p.add_action(a22)
+
+        w = PDDLWriter(p)
+        with open("ce_domain.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("ce_problem.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
+
+        planner = OneshotPlanner(name='fast_downward')
+        l = SocialLaw(p, planner)
+        status = l.is_robust()
+
+        self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.ROBUST_RATIONAL)
+
+
+
+
 
