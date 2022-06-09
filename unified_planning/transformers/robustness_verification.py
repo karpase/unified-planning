@@ -282,16 +282,15 @@ class RobustnessVerifier(Transformer):
                 a_w.add_effect(failure, True)
                 self._new_problem.add_action(a_w)
 
-            # Phantom version
-            for i, fact in enumerate(action.preconditions_wait):
-                a_p = self.create_action_copy(action, "_p_" + str(i))
-                a_w.add_precondition(failure)
-                #for effect in action.effects:
-                #    if effect.value.is_true():
-                #        a_p.add_precondition(Not(self.get_waiting_version(effect.fluent)))
-                #a_p.add_precondition(waiting(action.agent.obj))             
-                #a_p.add_precondition(failure)   
-                self._new_problem.add_action(a_p)
+            # Phantom version            
+            a_p = self.create_action_copy(action, "_p")
+            a_p.add_precondition(failure)
+            #for effect in action.effects:
+            #    if effect.value.is_true():
+            #        a_p.add_precondition(Not(self.get_waiting_version(effect.fluent)))
+            #a_p.add_precondition(waiting(action.agent.obj))             
+            #a_p.add_precondition(failure)   
+            self._new_problem.add_action(a_p)
 
         for f in self._problem.fluents:
             params = {}

@@ -92,9 +92,10 @@ class SocialLaw(Transformer):
             return SocialLawRobustnessStatus.NON_ROBUST_SINGLE_AGENT
         if not self.is_multi_agent_robust():
             for action_occurence in self.counter_example.actions:
-                if action_occurence.action.name[-2:] == "_f":
+                parts = action_occurence.action.name.split("_")
+                if parts[-2] == "f":
                     return SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_FAIL
-                elif action_occurence.action.name[-2:] == "_w":
+                elif parts[-2] == "w":
                     return SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK            
             return SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_FAIL
         return SocialLawRobustnessStatus.ROBUST_RATIONAL
