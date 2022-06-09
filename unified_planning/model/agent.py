@@ -29,7 +29,7 @@ class Agent:
     """
     def __init__(self, name: str = None, 
                     env: 'up.environment.Environment' = None,
-                    goals: List['up.model.fnode.FNode'] = [],
+                    goals: List['up.model.fnode.FNode'] = list(),
                     agent_type_name: str = "agent"):
         self._name = name
         self._env = env
