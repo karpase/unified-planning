@@ -416,7 +416,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", False)
         self.add_car(problem, "c2", "north-ent", "south-ex", "south", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_PROVEN, True, True, "int2cars_opp")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.UNSOLVABLE_INCOMPLETELY, True, True, "int2cars_opp")
 
     def test_intersection_problem_interface_lifted_4cars(self):
         problem = self.create_basic_intersection_problem_interface()
