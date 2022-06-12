@@ -247,14 +247,14 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
-        with OneshotPlanner(problem_kind=problem.kind) as planner:
+        with OneshotPlanner(name='fast_downward') as planner:
             result = planner.solve(problem)
             self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
         ref_problem = problem
 
         if perform_grounding:
-            grounder = Grounder(problem_kind=problem.kind)
+            grounder = Grounder(name='tarski_grounder')
             grounding_result = grounder.ground(problem)
             ground_problem = grounding_result.problem
 
@@ -315,7 +315,7 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()        
 
-        with OneshotPlanner(name='fast_downward_optimal') as planner: #problem_kind=ncr_rv_problem.kind) as planner:
+        with OneshotPlanner(name='fast_downward') as planner: #problem_kind=ncr_rv_problem.kind) as planner:
             result = planner.solve(ncr_rv_problem)
             self.assertEqual(result.status, expected_robustness_result)
 
@@ -385,9 +385,9 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()        
 
-        with OneshotPlanner(name='fast_downward_optimal') as planner: #problem_kind=ncr_rv_problem.kind) as planner:
+        with OneshotPlanner(name='fast_downward') as planner: #problem_kind=ncr_rv_problem.kind) as planner:
             result = planner.solve(ncr_rv_problem)
-            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY)
+            self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
 
 
@@ -400,7 +400,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", False)
         self.add_car(problem, "c4", "east-ent", "west-ex", "west", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, True, True, "int4cars")
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "int4cars")
 
     def test_intersection_problem_interface_2cars_cross(self):
         problem = self.create_basic_intersection_problem_interface()
@@ -408,7 +408,7 @@ class TestSocialLaws(TestCase):
         self.add_car(problem, "c1", "south-ent", "north-ex", "north", False)
         self.add_car(problem, "c3", "west-ent", "east-ex", "east", False)
 
-        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_OPTIMALLY, True, True, "int2cars_cross")        
+        self.exercise_problem(problem, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING, True, True, "int2cars_cross")        
 
     def test_intersection_problem_interface_2cars_opposite(self):
         problem = self.create_basic_intersection_problem_interface()
