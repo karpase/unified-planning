@@ -86,10 +86,10 @@ class RobustnessVerifier(Transformer):
         else:
             return lfact
 
-    def get_waiting_version(self, fact, agent):
+    def get_waiting_version(self, fact): #, agent
         """get the waiting copy of given fact
         """
-        agent_tuple = (agent),
+        #agent_tuple = (agent),
 
         negate = False
         if fact.is_not():
@@ -97,7 +97,8 @@ class RobustnessVerifier(Transformer):
             fact = fact.arg(0)
         wfact = self._new_problem._env.expression_manager.FluentExp(
             self._w_fluent_map[fact.fluent().name], 
-            agent_tuple + fact.args)
+            #agent_tuple + 
+            fact.args)
         if negate:
             return Not(wfact)
         else:
@@ -178,7 +179,8 @@ class RobustnessVerifier(Transformer):
             g_fluent = Fluent("g-" + f.name, f.type, f.signature)
             c_fluent = Fluent("c-" + f.name, f.type, f.signature)
             l_fluent = Fluent("l-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
-            w_fluent = Fluent("w-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)            
+            w_fluent = Fluent("w-" + f.name, f.type, #[Parameter("agent", agent_type)] + 
+                    f.signature)            
             self._g_fluent_map[f.name] = g_fluent
             self._c_fluent_map[f.name] = c_fluent
             self._l_fluent_map[f.name] = l_fluent
@@ -209,7 +211,7 @@ class RobustnessVerifier(Transformer):
 
                 tf = f.__call__(*end_w.parameters)
 
-                end_w.add_precondition(self.get_waiting_version(tf, agent.obj))
+                end_w.add_precondition(self.get_waiting_version(tf))#, agent.obj))
                 end_w.add_precondition(waiting(agent.obj))
                 for goal in agent.goals:                
                     end_w.add_precondition(self.get_local_version(goal, agent.obj))
@@ -277,7 +279,7 @@ class RobustnessVerifier(Transformer):
                 #a_w.add_precondition(Not(failure))
                 a_w.add_precondition(Not(self.get_global_version(fact)))
                 assert not fact.is_not()
-                a_w.add_effect(self.get_waiting_version(fact, action.agent.obj), True)
+                a_w.add_effect(self.get_waiting_version(fact), True)#, action.agent.obj), True)
                 a_w.add_effect(waiting(action.agent.obj), True)
                 a_w.add_effect(failure, True)
                 self._new_problem.add_action(a_w)
@@ -310,7 +312,7 @@ class RobustnessVerifier(Transformer):
             tf = f.__call__(*check_no_waiting_f.parameters)            
             for agent in self._problem.agents:
                 check_no_waiting_f.add_precondition(fin(agent.obj))
-                check_no_waiting_f.add_precondition(Not(self.get_waiting_version(tf, agent.obj)))            
+                check_no_waiting_f.add_precondition(Not(self.get_waiting_version(tf)))#, agent.obj)))            
             check_no_waiting_f.add_effect(self.get_checked_version(tf), True)
             self._new_problem.add_action(check_no_waiting_f)
 
