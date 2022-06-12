@@ -574,7 +574,8 @@ class TestSocialLaws(TestCase):
         p.add_action(a21)
 
         a22 = InstantaneousAction("a22")
-        a22.agent = ag2        
+        a22.agent = ag2
+        a22.add_precondition(nf2)
         a22.add_effect(f3, False)
         a22.add_effect(nf3, True)
         p.add_action(a22)

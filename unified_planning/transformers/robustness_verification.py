@@ -165,14 +165,14 @@ class RobustnessVerifier(Transformer):
         failure = Fluent("failure")
         act = Fluent("act")
         fin = Fluent("fin", _signature=[Parameter("a", agent_type)])
-        #waiting = Fluent("waiting", _signature=[Parameter("a", agent_type)])
+        waiting = Fluent("waiting", _signature=[Parameter("a", agent_type)])
 
         self.act_pred = act
         
         self._new_problem.add_fluent(failure, default_initial_value=False)
         self._new_problem.add_fluent(act, default_initial_value=True)
         self._new_problem.add_fluent(fin, default_initial_value=False)
-        #self._new_problem.add_fluent(waiting, default_initial_value=False)
+        self._new_problem.add_fluent(waiting, default_initial_value=False)
 
         for f in self._problem.fluents:
             g_fluent = Fluent("g-" + f.name, f.type, f.signature)
@@ -210,7 +210,7 @@ class RobustnessVerifier(Transformer):
                 tf = f.__call__(*end_w.parameters)
 
                 end_w.add_precondition(self.get_waiting_version(tf, agent.obj))
-                #end_w.add_precondition(waiting(agent.obj))
+                end_w.add_precondition(waiting(agent.obj))
                 for goal in agent.goals:                
                     end_w.add_precondition(self.get_local_version(goal, agent.obj))
                 end_w.add_effect(fin(agent.obj), True)
@@ -231,7 +231,7 @@ class RobustnessVerifier(Transformer):
         for action in self._problem.actions:
             # Success version - affects globals same way as original
             a_s = self.create_action_copy(action, "_s")
-            #a_s.add_precondition(Not(waiting(action.agent.obj)))
+            a_s.add_precondition(Not(waiting(action.agent.obj)))
             #a_s.add_precondition(Not(failure))
             #for effect in action.effects:
             #    if effect.value.is_true():
@@ -259,7 +259,7 @@ class RobustnessVerifier(Transformer):
                 #for effect in action.effects:
                 #    if effect.value.is_true():
                 #        a_f.add_precondition(Not(self.get_waiting_version(effect.fluent)))
-                #a_f.add_precondition(Not(waiting(action.agent.obj)))
+                a_f.add_precondition(Not(waiting(action.agent.obj)))
                 #a_f.add_precondition(Not(failure))
                 for pre in action.preconditions_wait:
                     a_f.add_precondition(self.get_global_version(pre))
@@ -273,24 +273,24 @@ class RobustnessVerifier(Transformer):
                 #for effect in action.effects:
                 #    if effect.value.is_true():
                 #        a_w.add_precondition(Not(self.get_waiting_version(effect.fluent)))
-                #a_w.add_precondition(Not(waiting(action.agent.obj)))
+                a_w.add_precondition(Not(waiting(action.agent.obj)))
                 #a_w.add_precondition(Not(failure))
                 a_w.add_precondition(Not(self.get_global_version(fact)))
                 assert not fact.is_not()
                 a_w.add_effect(self.get_waiting_version(fact, action.agent.obj), True)
-                #a_w.add_effect(waiting(action.agent.obj), True)
+                a_w.add_effect(waiting(action.agent.obj), True)
                 a_w.add_effect(failure, True)
                 self._new_problem.add_action(a_w)
 
             # Phantom version            
-            # a_p = self.create_action_copy(action, "_p")
-            # a_p.add_precondition(failure)
+            a_p = self.create_action_copy(action, "_p")
+            #a_p.add_precondition(failure)
             # #for effect in action.effects:
             # #    if effect.value.is_true():
             # #        a_p.add_precondition(Not(self.get_waiting_version(effect.fluent)))
-            # #a_p.add_precondition(waiting(action.agent.obj))             
+            a_p.add_precondition(waiting(action.agent.obj))
             # #a_p.add_precondition(failure)   
-            # self._new_problem.add_action(a_p)
+            self._new_problem.add_action(a_p)
 
         for f in self._problem.fluents:
             params = {}
