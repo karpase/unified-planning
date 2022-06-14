@@ -177,16 +177,16 @@ class RobustnessVerifier(Transformer):
 
         for f in self._problem.fluents:
             g_fluent = Fluent("g-" + f.name, f.type, f.signature)
-            c_fluent = Fluent("c-" + f.name, f.type, f.signature)
+            #c_fluent = Fluent("c-" + f.name, f.type, f.signature)
             l_fluent = Fluent("l-" + f.name, f.type, [Parameter("agent", agent_type)] + f.signature)
             w_fluent = Fluent("w-" + f.name, f.type, #[Parameter("agent", agent_type)] + 
                     f.signature)            
             self._g_fluent_map[f.name] = g_fluent
-            self._c_fluent_map[f.name] = c_fluent
+            #self._c_fluent_map[f.name] = c_fluent
             self._l_fluent_map[f.name] = l_fluent
             self._w_fluent_map[f.name] = w_fluent
             self._new_problem.add_fluent(g_fluent, default_initial_value=False)
-            self._new_problem.add_fluent(c_fluent, default_initial_value=False)
+            #self._new_problem.add_fluent(c_fluent, default_initial_value=False)
             self._new_problem.add_fluent(l_fluent, default_initial_value=False)
             self._new_problem.add_fluent(w_fluent, default_initial_value=False)
 
@@ -202,22 +202,15 @@ class RobustnessVerifier(Transformer):
             end_s.add_effect(act, False)
             self._new_problem.add_action(end_s)
 
-            for f in self._problem.fluents:
-                params = {}
-                for s in f._signature:
-                    params[s.name] = s.type
-                end_w = InstantaneousAction("end_w_" + agent.name + "_" + f.name, _parameters = params)
-                end_w.add_precondition(Not(fin(agent.obj)))
-
-                tf = f.__call__(*end_w.parameters)
-
-                end_w.add_precondition(self.get_waiting_version(tf))#, agent.obj))
-                end_w.add_precondition(waiting(agent.obj))
-                for goal in agent.goals:                
-                    end_w.add_precondition(self.get_local_version(goal, agent.obj))
-                end_w.add_effect(fin(agent.obj), True)
-                end_w.add_effect(act, False)
-                self._new_problem.add_action(end_w)
+            
+            end_w = InstantaneousAction("end_w_" + agent.name)
+            end_w.add_precondition(Not(fin(agent.obj)))
+            end_w.add_precondition(waiting(agent.obj))
+            for goal in agent.goals:                
+                end_w.add_precondition(self.get_local_version(goal, agent.obj))
+            end_w.add_effect(fin(agent.obj), True)
+            end_w.add_effect(act, False)
+            self._new_problem.add_action(end_w)
 
             for i, goal in enumerate(agent.goals):
                 end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
@@ -235,9 +228,9 @@ class RobustnessVerifier(Transformer):
             a_s = self.create_action_copy(action, "_s")
             a_s.add_precondition(Not(waiting(action.agent.obj)))
             #a_s.add_precondition(Not(failure))
-            #for effect in action.effects:
-            #    if effect.value.is_true():
-            #        a_s.add_precondition(Not(self.get_waiting_version(effect.fluent)))
+            for effect in action.effects:
+                if effect.value.is_true():
+                    a_s.add_precondition(Not(self.get_waiting_version(effect.fluent)))
             for fact in action.preconditions + action.preconditions_wait:
                 if fact.is_and():
                     for f in fact.args:
@@ -294,27 +287,27 @@ class RobustnessVerifier(Transformer):
             # #a_p.add_precondition(failure)   
             self._new_problem.add_action(a_p)
 
-        for f in self._problem.fluents:
-            params = {}
-            for s in f._signature:
-                params[s.name] = s.type
+        # for f in self._problem.fluents:
+        #     params = {}
+        #     for s in f._signature:
+        #         params[s.name] = s.type
 
-            check_no_f = InstantaneousAction("check_no_" + f.name, _parameters = params)
-            tf = f.__call__(*check_no_f.parameters)
-            for agent in self._problem.agents:
-                check_no_f.add_precondition(fin(agent.obj))
+        #     check_no_f = InstantaneousAction("check_no_" + f.name, _parameters = params)
+        #     tf = f.__call__(*check_no_f.parameters)
+        #     for agent in self._problem.agents:
+        #         check_no_f.add_precondition(fin(agent.obj))
             
-            check_no_f.add_precondition(Not(self.get_global_version(tf)))
-            check_no_f.add_effect(self.get_checked_version(tf), True)
-            self._new_problem.add_action(check_no_f)
+        #     check_no_f.add_precondition(Not(self.get_global_version(tf)))
+        #     check_no_f.add_effect(self.get_checked_version(tf), True)
+        #     self._new_problem.add_action(check_no_f)
 
-            check_no_waiting_f = InstantaneousAction("check_no_waiting_" + f.name, _parameters = params)
-            tf = f.__call__(*check_no_waiting_f.parameters)            
-            for agent in self._problem.agents:
-                check_no_waiting_f.add_precondition(fin(agent.obj))
-                check_no_waiting_f.add_precondition(Not(self.get_waiting_version(tf)))#, agent.obj)))            
-            check_no_waiting_f.add_effect(self.get_checked_version(tf), True)
-            self._new_problem.add_action(check_no_waiting_f)
+        #     check_no_waiting_f = InstantaneousAction("check_no_waiting_" + f.name, _parameters = params)
+        #     tf = f.__call__(*check_no_waiting_f.parameters)            
+        #     for agent in self._problem.agents:
+        #         check_no_waiting_f.add_precondition(fin(agent.obj))
+        #         check_no_waiting_f.add_precondition(Not(self.get_waiting_version(tf)))#, agent.obj)))            
+        #     check_no_waiting_f.add_effect(self.get_checked_version(tf), True)
+        #     self._new_problem.add_action(check_no_waiting_f)
 
 
 
@@ -329,13 +322,13 @@ class RobustnessVerifier(Transformer):
         self._new_problem.add_goal(failure)
         for agent in self._problem.agents:            
             self._new_problem.add_goal(fin(agent.obj))
-        for f in self._problem.fluents:       
+        #for f in self._problem.fluents:       
             # This does not work...
             #self._new_problem.add_goal(Forall(self.get_checked_version(FluentExp(f, f.signature)), 
             #    *list(map(lambda p: Variable(p.name, p.type), f.signature))))
-            object_lists = list(map(lambda p: list(self._problem.objects(p.type)), f.signature))
-            for object_tuple in product(*object_lists):
-                self._new_problem.add_goal(self.get_checked_version(FluentExp(f, object_tuple)))
+        #    object_lists = list(map(lambda p: list(self._problem.objects(p.type)), f.signature))
+        #    for object_tuple in product(*object_lists):
+        #        self._new_problem.add_goal(self.get_checked_version(FluentExp(f, object_tuple)))
             
                 
                 
