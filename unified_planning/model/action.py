@@ -287,6 +287,7 @@ class DurativeAction(Action):
         Action.__init__(self, _name, _parameters, _env, **kwargs)
         self._duration: 'up.model.timing.DurationInterval' = up.model.timing.FixedDuration(self._env.expression_manager.Int(0))
         self._conditions: Dict['up.model.timing.TimeInterval', List['up.model.fnode.FNode']] = {}
+        self._conditions_wait: Dict['up.model.timing.TimeInterval', List['up.model.fnode.FNode']] = {}
         self._effects: Dict['up.model.timing.Timing', List['up.model.effect.Effect']] = {}
         self._simulated_effects: Dict['up.model.timing.Timing', 'up.model.effect.SimulatedEffect'] = {}
 
@@ -329,9 +330,17 @@ class DurativeAction(Action):
             if self._env != oth._env or self._name != oth._name or self._parameters != oth._parameters or self._duration != oth._duration:
                 return False
             if len(self._conditions) != len(oth._conditions):
-                return False
+                return False            
             for i, cl in self._conditions.items():
                 oth_cl = oth._conditions.get(i, None)
+                if oth_cl is None:
+                    return False
+                elif set(cl) != set(oth_cl):
+                    return False
+            if len(self._conditions_wait) != len(oth._conditions_wait):
+                return False
+            for i, cl in self._conditions_wait.items():
+                oth_cl = oth._conditions_wait.get(i, None)
                 if oth_cl is None:
                     return False
                 elif set(cl) != set(oth_cl):
@@ -362,6 +371,10 @@ class DurativeAction(Action):
             res += hash(i)
             for c in cl:
                 res += hash(c)
+        for i, cl in self._conditions_wait.items():
+            res += hash(i)
+            for c in cl:
+                res += hash(c)                
         for t, el in self._effects.items():
             res += hash(t)
             for e in el:
@@ -375,6 +388,7 @@ class DurativeAction(Action):
         new_durative_action = DurativeAction(self._name, new_params, self._env)
         new_durative_action._duration = self._duration
         new_durative_action._conditions = {t: cl[:] for t, cl in self._conditions.items()}
+        new_durative_action._conditions_wait = {t: cl[:] for t, cl in self._conditions_wait.items()}
         new_durative_action._effects = {t : [e.clone() for e in el] for t, el in self._effects.items()}
         new_durative_action._simulated_effects = {t: se for t, se in self._simulated_effects.items()}
         return new_durative_action
@@ -392,6 +406,15 @@ class DurativeAction(Action):
     def clear_conditions(self):
         '''Removes all conditions.'''
         self._conditions = {}
+
+    @property
+    def conditions_wait(self) -> Dict['up.model.timing.TimeInterval', List['up.model.fnode.FNode']]:
+        '''Returns the action conditions.'''
+        return self._conditions_wait
+
+    def clear_conditions_wait(self):
+        '''Removes all conditions.'''
+        self._conditions_wait = {}        
 
     @property
     def effects(self) -> Dict['up.model.timing.Timing', List['up.model.effect.Effect']]:
@@ -484,6 +507,23 @@ class DurativeAction(Action):
 
     def _set_conditions(self, interval: 'up.model.timing.TimeInterval', conditions: List['up.model.fnode.FNode']):
         self._conditions[interval] = conditions
+
+
+    def add_condition_wait(self, interval: Union['up.model.timing.Timing', 'up.model.timing.TimeInterval'],
+                      condition: Union['up.model.fnode.FNode', 'up.model.fluent.Fluent', 'up.model.parameter.Parameter', bool]):
+        '''Adds the given wait condition.'''
+        if isinstance(interval, up.model.Timing):
+            interval = up.model.TimePointInterval(interval)
+        condition_exp, = self._env.expression_manager.auto_promote(condition)
+        assert self._env.type_checker.get_type(condition_exp).is_bool_type()
+        if interval in self._conditions_wait:
+            if condition_exp not in self._conditions_wait[interval]:
+                self._conditions_wait[interval].append(condition_exp)
+        else:
+            self._conditions_wait[interval] = [condition_exp]
+
+    def _set_conditions_wait(self, interval: 'up.model.timing.TimeInterval', conditions: List['up.model.fnode.FNode']):
+        self._conditions_wait[interval] = conditions        
 
     def add_effect(self, timing: 'up.model.timing.Timing', fluent: Union['up.model.fnode.FNode', 'up.model.fluent.Fluent'],
                    value: 'up.model.expression.Expression', condition: 'up.model.expression.BoolExpression' = True):

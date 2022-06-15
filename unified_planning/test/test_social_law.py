@@ -21,7 +21,7 @@ from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.model import Agent
-from unified_planning.transformers import RobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection, SocialLaw
+from unified_planning.transformers import InstantaneousActionRobustnessVerifier, DuativeActionRobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection, SocialLaw
 
 
 # (define (domain intersection)
@@ -181,6 +181,155 @@ class TestSocialLaws(TestCase):
         return problem
 
 
+    def create_durative_intersection_problem_interface(self, use_waiting : bool = False) -> unified_planning.model.Problem:
+        #  (:types
+        #   direction loc agent - object
+        #   car - agent            
+        #  )        
+        loc = UserType("loc")
+        direction = UserType("direction")
+        car = UserType("car")
+
+        #  (:predicates 
+        #   (at ?a - car ?l - loc)  
+        #   (free ?l - loc)  
+        
+        #   (arrived ?a - car)
+        #   (start ?a - car ?l - loc)
+        #   (travel-direction ?a - car ?d - direction)
+        
+        #   (connected ?l1 - loc ?l2 - loc ?d - direction)
+        #   (yields-to ?l1 - loc ?l2 - loc)      
+        #  )
+        at = Fluent('at', _signature=[Parameter('a', car), Parameter('l', loc)])
+        free = Fluent('free', _signature=[Parameter('l', loc)])
+        arrived = Fluent('arrived', _signature=[Parameter('a', car)])
+        start = Fluent('start', _signature=[Parameter('a', car), Parameter('l', loc)])        
+        traveldirection = Fluent('traveldirection', _signature=[Parameter('a', car), Parameter('d', direction)])
+        connected = Fluent('connected', _signature=[Parameter('l1', loc), Parameter('l2', loc), Parameter('d', direction)])
+        #
+
+
+        #  (:constants
+        #    south-ent south-ex north-ent north-ex east-ent  east-ex west-ent  west-ex cross-nw cross-ne cross-se cross-sw dummy - loc
+        #    north south east west - direction
+        #  )
+
+        intersection_map = {
+            "north": ["south-ent", "cross-se", "cross-ne", "north-ex"],
+            "south": ["north-ent", "cross-nw", "cross-sw", "south-ex"],
+            "west": ["east-ent", "cross-ne", "cross-nw", "west-ex"],
+            "east": ["west-ent", "cross-sw", "cross-se", "east-ex"]
+        }
+
+        location_names = set()
+        
+        for l in intersection_map.values():
+            location_names = location_names.union(l)
+        locations = list(map(lambda l: unified_planning.model.Object(l, loc), location_names))
+        self.assertEqual(len(location_names), 12)
+            
+        direction_names = intersection_map.keys()
+        directions = list(map(lambda d: unified_planning.model.Object(d, direction), direction_names))
+        
+        #  (:action arrive
+        #     :agent    ?a - car 
+        #     :parameters  (?l - loc)
+        #     :precondition  (and  
+        #     	(start ?a ?l)
+        #     	(not (arrived ?a))
+        #     	(free ?l)      
+        #       )
+        #     :effect    (and     	
+        #     	(at ?a ?l)
+        #     	(not (free ?l))
+        #     	(arrived ?a)
+        #       )
+        #   )
+        arrive = DurativeAction('arrive', a=car, l=loc)
+        arrive.set_fixed_duration(0.01)
+        a = arrive.parameter('a')
+        l = arrive.parameter('l')
+        
+        arrive.add_condition(StartTiming(),start(a, l))
+        arrive.add_condition(StartTiming(),Not(arrived(a)))
+        arrive.add_condition(StartTiming(),free(l))
+        arrive.add_effect(EndTiming(), at(a,l), True)
+        arrive.add_effect(EndTiming(), free(l), False)
+        arrive.add_effect(EndTiming(), arrived(a), True)
+        arrive.agent = ExistingObjectAgent(a)
+
+
+
+        #   (:action drive
+        #     :agent    ?a - car 
+        #     :parameters  (?l1 - loc ?l2 - loc ?d - direction ?ly - loc)
+        #     :precondition  (and      	
+        #     	(at ?a ?l1)
+        #     	(free ?l2)     
+        #     	(travel-direction ?a ?d)
+        #     	(connected ?l1 ?l2 ?d)
+        #     	(yields-to ?l1 ?ly)
+        #     	(free ?ly)
+        #       )
+        #     :effect    (and     	
+        #     	(at ?a ?l2)
+        #     	(not (free ?l2))
+        #     	(not (at ?a ?l1))
+        #     	(free ?l1)
+        #       )
+        #    )    
+        # )
+        drive = DurativeAction('drive', a=car, l1=loc, l2=loc, d=direction, ly=loc)
+        drive.set_fixed_duration(1)
+        a = drive.parameter('a')
+        l1 = drive.parameter('l1')
+        l2 = drive.parameter('l2')
+        d = drive.parameter('d')
+        ly = drive.parameter('ly')
+        drive.add_condition(StartTiming(), at(a,l1))
+        if use_waiting:
+            drive.add_condition_wait(StartTiming(), free(l2))
+        else:
+            drive.add_condition(StartTiming(), free(l2))
+        drive.add_condition(StartTiming(), traveldirection(a,d))
+        drive.add_condition(StartTiming(), connected(l1,l2,d))
+        #drive.add_precondition(yieldsto(l1,ly))
+        #drive.add_precondition(free(ly))
+        drive.add_effect(EndTiming(), at(a,l2),True)
+        drive.add_effect(EndTiming(), free(l2), False)
+        drive.add_effect(EndTiming(), at(a,l1), False)
+        drive.add_effect(EndTiming(), free(l1), True)
+        drive.agent = ExistingObjectAgent(a)
+
+        problem = Problem('intersection')
+        problem.add_fluent(at, default_initial_value=False)
+        problem.add_fluent(free, default_initial_value=True)
+        problem.add_fluent(start, default_initial_value=False)
+        problem.add_fluent(arrived, default_initial_value=False)
+        problem.add_fluent(traveldirection, default_initial_value=False)
+        problem.add_fluent(connected, default_initial_value=False)
+        #problem.add_fluent(yieldsto)        
+
+        problem.add_action(arrive)
+        problem.add_action(drive)
+
+        problem.add_objects(locations)
+        problem.add_objects(directions)
+
+        #for l in locations:
+        #    problem.set_initial_value(free(unified_planning.model.Object(l, loc)), True)
+        for d in intersection_map.keys():
+            path = intersection_map[d]
+            for i in range(len(path) - 1):
+                problem.set_initial_value(connected(
+                    unified_planning.model.Object(path[i], loc),
+                    unified_planning.model.Object(path[i+1], loc),
+                    unified_planning.model.Object(d, direction)), True)
+        
+        return problem
+
+
     def add_car(self, problem : unified_planning.model.Problem, name : str , startloc : str, endloc : str, cardirection : str, add_object : bool):
         cartype = problem.user_type("car")
         loc = problem.user_type("loc")
@@ -291,7 +440,7 @@ class TestSocialLaws(TestCase):
             #    result = planner.solve(sap_problem)
             #    self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
-        rv = RobustnessVerifier(ref_problem)
+        rv = InstantaneousActionRobustnessVerifier(ref_problem)
 
         rv_problem = rv.get_rewritten_problem()
 
@@ -362,7 +511,7 @@ class TestSocialLaws(TestCase):
         problem.action("drive").agent = agent_a
         problem.action("arrive").agent = agent_a
 
-        rv = RobustnessVerifier(problem)
+        rv = InstantaneousActionRobustnessVerifier(problem)
 
         rv_problem = rv.get_rewritten_problem()
 
@@ -595,6 +744,33 @@ class TestSocialLaws(TestCase):
         self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.ROBUST_RATIONAL)
 
 
+
+    def test_intersection_problem_durative(self):
+        problem = self.create_durative_intersection_problem_interface(use_waiting=True)
+
+        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+
+        #self.add_yields(problem, [("south-ent", "east-ent"),("north-ent", "west-ent")])
+        
+        #planner = OneshotPlanner(name='fast_downward')
+        #l = SocialLaw(problem, planner)
+        #status = l.is_robust()
+
+        #self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
+
+        rv = DuativeActionRobustnessVerifier(problem)
+        rv_problem = rv.get_rewritten_problem()
+
+        w = PDDLWriter(rv_problem)
+        with open("d_domain.pddl","w") as f:
+            print(w.get_domain(), file = f)
+            f.close()
+        with open("d_problem.pddl","w") as f:
+            print(w.get_problem(), file = f)
+            f.close()
 
 
 
