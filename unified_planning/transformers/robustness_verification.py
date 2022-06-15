@@ -69,53 +69,7 @@ class RobustnessVerifier(Transformer):
         else:
             return lfact
 
-    def create_action_copy(self, action, suffix):
-        """Create a new copy of an action, with name action_name_suffix, and duplicates the local preconditions/effects
-        """      
-
-        d = {}
-        for p in action.parameters:
-            d[p.name] = p.type
-
-        if isinstance(action, InstantaneousAction):
-            new_action = InstantaneousAction(action.name + suffix, _parameters=d)
-            new_action.add_precondition(self.act_pred)
-            #TODO: can probably do this better with a substitution walker
-            for fact in action.preconditions + action.preconditions_wait:
-                if fact.is_and():
-                    for f in fact.args:
-                        new_action.add_precondition(self.get_local_version(f, action.agent.obj))
-                else:
-                    new_action.add_precondition(self.get_local_version(fact, action.agent.obj))
-            for effect in action.effects:                
-                new_action.add_effect(self.get_local_version(effect.fluent, action.agent.obj), effect.value)            
-        elif isinstance(action, DurativeAction):
-            new_action = DurativeAction(action.name + suffix, _parameters=d)
-            new_action.set_duration_constraint(action.duration)
-            new_action.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), self.act_pred)
-
-            #TODO: can probably do this better with a substitution walker
-            for timing in action.conditions.keys():
-                for fact in action.conditions[timing]:
-                    if fact.is_and():
-                        for f in fact.args:
-                            new_action.add_condition(timing, self.get_local_version(f, action.agent.obj))
-                    else:
-                        new_action.add_condition(timing, self.get_local_version(fact, action.agent.obj))
-            for timing in action.conditions_wait.keys():
-                for fact in action.conditions_wait[timing]:
-                    if fact.is_and():
-                        for f in fact.args:
-                            new_action.add_condition(timing, self.get_local_version(f, action.agent.obj))
-                    else:
-                        new_action.add_condition(timing, self.get_local_version(fact, action.agent.obj))
-            for timing in action.effects.keys():
-                for effect in action.effects[timing]:                
-                    new_action.add_effect(timing, self.get_local_version(effect.fluent, action.agent.obj), effect.value)
-        else:
-            assert False, "Unknown action type"
-
-        return new_action    
+   
 
 
     def prepare_rewritten_problem(self):
@@ -163,6 +117,30 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
         RobustnessVerifier.__init__(self, problem, name)                  
         self._w_fluent_map = {}        
         
+
+    def create_action_copy(self, action, suffix):
+        """Create a new copy of an action, with name action_name_suffix, and duplicates the local preconditions/effects
+        """      
+
+        d = {}
+        for p in action.parameters:
+            d[p.name] = p.type
+
+        
+        new_action = InstantaneousAction(action.name + suffix, _parameters=d)
+        new_action.add_precondition(self.act_pred)
+        #TODO: can probably do this better with a substitution walker
+        for fact in action.preconditions + action.preconditions_wait:
+            if fact.is_and():
+                for f in fact.args:
+                    new_action.add_precondition(self.get_local_version(f, action.agent.obj))
+            else:
+                new_action.add_precondition(self.get_local_version(fact, action.agent.obj))
+        for effect in action.effects:                
+            new_action.add_effect(self.get_local_version(effect.fluent, action.agent.obj), effect.value)            
+
+        return new_action
+
 
     def get_waiting_version(self, fact): #, agent
         """get the waiting copy of given fact
@@ -319,6 +297,40 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
         RobustnessVerifier.__init__(self, problem, name)                  
         self._w_fluent_map = {}        
         self._i_fluent_map = {}        
+
+    def create_action_copy(self, action, suffix):
+        """Create a new copy of an action, with name action_name_suffix, and duplicates the local preconditions/effects
+        """      
+
+        d = {}
+        for p in action.parameters:
+            d[p.name] = p.type
+
+        
+        new_action = DurativeAction(action.name + suffix, _parameters=d)
+        new_action.set_duration_constraint(action.duration)
+        new_action.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), self.act_pred)
+
+        #TODO: can probably do this better with a substitution walker
+        for timing in action.conditions.keys():
+            for fact in action.conditions[timing]:
+                if fact.is_and():
+                    for f in fact.args:
+                        new_action.add_condition(timing, self.get_local_version(f, action.agent.obj))
+                else:
+                    new_action.add_condition(timing, self.get_local_version(fact, action.agent.obj))
+        for timing in action.conditions_wait.keys():
+            for fact in action.conditions_wait[timing]:
+                if fact.is_and():
+                    for f in fact.args:
+                        new_action.add_condition(timing, self.get_local_version(f, action.agent.obj))
+                else:
+                    new_action.add_condition(timing, self.get_local_version(fact, action.agent.obj))
+        for timing in action.effects.keys():
+            for effect in action.effects[timing]:                
+                new_action.add_effect(timing, self.get_local_version(effect.fluent, action.agent.obj), effect.value)
+
+        return new_action    
         
 
     def get_waiting_version(self, fact, agent):
@@ -438,20 +450,22 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                             a_s.add_condition(timing, Not(self.get_waiting_version(effect.fluent, agent.obj)))
                             if timing == EndTiming():
                                 a_s.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), Not(self.get_waiting_version(effect.fluent, agent.obj)))
-            for fact in action.conditions.get(ClosedDurationInterval(StartTiming(), EndTiming()), []):
-                a_s.add_increase_effect(StartTiming(), self.get_inv_count_version(fact), 1)
-                a_s.add_decrease_effect(EndTiming(), self.get_inv_count_version(fact), 1)
+            for interval, condition in action.conditions.items():
+                if interval.lower != interval.upper:
+                    for fact in condition:                
+                        a_s.add_increase_effect(StartTiming(), self.get_inv_count_version(fact), 1)
+                        a_s.add_decrease_effect(EndTiming(), self.get_inv_count_version(fact), 1)
             self._new_problem.add_action(a_s)
             
-            # # Fail start version
-            # real_start_conds = []
-            # for fact in action.conditions[StartTiming()]:
-            #     if fact.is_and():
-            #         real_start_conds += fact.args
-            #     else:
-            #         real_start_conds.append(fact)
-            # for i, fact in enumerate(real_start_conds):
-            #     a_fstart = self.create_action_copy(action, "_f_start_" + str(i))
+            # Fail start version
+            real_start_conds = []
+            for fact in action.conditions.get(StartTiming(),[]):
+                if fact.is_and():
+                    real_start_conds += fact.args
+                else:
+                    real_start_conds.append(fact)
+            for i, fact in enumerate(real_start_conds):
+                a_fstart = self.create_action_copy(action, "_f_start_" + str(i))
                 
                 
                 
