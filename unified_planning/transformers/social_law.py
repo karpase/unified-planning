@@ -16,7 +16,7 @@
 
 from unified_planning.transformers.transformer import Transformer
 from unified_planning.transformers.single_agent_projection import SingleAgentProjection
-from unified_planning.transformers.robustness_verification import RobustnessVerifier
+from unified_planning.transformers.robustness_verification import InstantaneousActionRobustnessVerifier, DuativeActionRobustnessVerifier
 from unified_planning.model import Parameter, Fluent, InstantaneousAction
 from unified_planning.shortcuts import *
 from unified_planning.exceptions import UPProblemDefinitionError
@@ -68,7 +68,7 @@ class SocialLaw(Transformer):
         self._counter_example = None
 
         problem = self.get_rewritten_problem()        
-        rv = RobustnessVerifier(problem)
+        rv = InstantaneousActionRobustnessVerifier(problem)
         rv_problem = rv.get_rewritten_problem()
 
         w = PDDLWriter(rv_problem)
