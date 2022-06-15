@@ -54,7 +54,7 @@ class SocialLaw(Transformer):
             self._planner = OneshotPlanner(name='tamer')
         return self._planner
 
-    def is_single_agent_solvable(self) -> Bool:
+    def is_single_agent_solvable(self) -> bool:
         problem = self.get_rewritten_problem()
         for agent in problem.agents:
             sap = SingleAgentProjection(problem, agent)
@@ -64,7 +64,7 @@ class SocialLaw(Transformer):
                 return False
         return True        
 
-    def is_multi_agent_robust(self) -> Bool:
+    def is_multi_agent_robust(self) -> bool:
         self._counter_example = None
 
         problem = self.get_rewritten_problem()        
