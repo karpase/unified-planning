@@ -247,13 +247,13 @@ class TestSocialLaws(TestCase):
         #       )
         #   )
         arrive = DurativeAction('arrive', a=car, l=loc)
-        arrive.set_fixed_duration(0.01)
+        arrive.set_fixed_duration(1)
         a = arrive.parameter('a')
         l = arrive.parameter('l')
         
         arrive.add_condition(StartTiming(),start(a, l))
         arrive.add_condition(StartTiming(),Not(arrived(a)))
-        arrive.add_condition(StartTiming(),free(l))
+        arrive.add_condition(OpenDurationInterval(StartTiming(), EndTiming()),free(l))
         arrive.add_effect(EndTiming(), at(a,l), True)
         arrive.add_effect(EndTiming(), free(l), False)
         arrive.add_effect(EndTiming(), arrived(a), True)
@@ -289,9 +289,9 @@ class TestSocialLaws(TestCase):
         ly = drive.parameter('ly')
         drive.add_condition(StartTiming(), at(a,l1))
         if use_waiting:
-            drive.add_condition_wait(StartTiming(), free(l2))
+            drive.add_condition_wait(ClosedDurationInterval(StartTiming(), EndTiming()), free(l2))
         else:
-            drive.add_condition(StartTiming(), free(l2))
+            drive.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), free(l2))
         drive.add_condition(StartTiming(), traveldirection(a,d))
         drive.add_condition(StartTiming(), connected(l1,l2,d))
         #drive.add_precondition(yieldsto(l1,ly))

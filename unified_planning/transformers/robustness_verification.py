@@ -71,27 +71,52 @@ class RobustnessVerifier(Transformer):
 
     def create_action_copy(self, action, suffix):
         """Create a new copy of an action, with name action_name_suffix, and duplicates the local preconditions/effects
-        """        
-        if len(action.parameters) == 0:
-            new_action = InstantaneousAction(action.name + suffix)
-        else:
-            d = {}
-            for p in action.parameters:
-                d[p.name] = p.type
-            new_action = InstantaneousAction(action.name + suffix, _parameters=d)
+        """      
 
-        new_action.add_precondition(self.act_pred)
-        
-        #TODO: can probably do this better with a substitution walker
-        for fact in action.preconditions + action.preconditions_wait:
-            if fact.is_and():
-                for f in fact.args:
-                    new_action.add_precondition(self.get_local_version(f, action.agent.obj))
-            else:
-                new_action.add_precondition(self.get_local_version(fact, action.agent.obj))
-        for effect in action.effects:                
-            new_action.add_effect(self.get_local_version(effect.fluent, action.agent.obj), effect.value)
+        d = {}
+        for p in action.parameters:
+            d[p.name] = p.type
+
+        if isinstance(action, InstantaneousAction):
+            new_action = InstantaneousAction(action.name + suffix, _parameters=d)
+            new_action.add_precondition(self.act_pred)
+            #TODO: can probably do this better with a substitution walker
+            for fact in action.preconditions + action.preconditions_wait:
+                if fact.is_and():
+                    for f in fact.args:
+                        new_action.add_precondition(self.get_local_version(f, action.agent.obj))
+                else:
+                    new_action.add_precondition(self.get_local_version(fact, action.agent.obj))
+            for effect in action.effects:                
+                new_action.add_effect(self.get_local_version(effect.fluent, action.agent.obj), effect.value)            
+        elif isinstance(action, DurativeAction):
+            new_action = DurativeAction(action.name + suffix, _parameters=d)
+            new_action.set_duration_constraint(action.duration)
+            new_action.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), self.act_pred)
+
+            #TODO: can probably do this better with a substitution walker
+            for timing in action.conditions.keys():
+                for fact in action.conditions[timing]:
+                    if fact.is_and():
+                        for f in fact.args:
+                            new_action.add_condition(timing, self.get_local_version(f, action.agent.obj))
+                    else:
+                        new_action.add_condition(timing, self.get_local_version(fact, action.agent.obj))
+            for timing in action.conditions_wait.keys():
+                for fact in action.conditions_wait[timing]:
+                    if fact.is_and():
+                        for f in fact.args:
+                            new_action.add_condition(timing, self.get_local_version(f, action.agent.obj))
+                    else:
+                        new_action.add_condition(timing, self.get_local_version(fact, action.agent.obj))
+            for timing in action.effects.keys():
+                for effect in action.effects[timing]:                
+                    new_action.add_effect(timing, self.get_local_version(effect.fluent, action.agent.obj), effect.value)
+        else:
+            assert False, "Unknown action type"
+
         return new_action    
+
 
     def prepare_rewritten_problem(self):
         if self._new_problem is not None:
@@ -382,39 +407,69 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
         #         end_f.add_effect(failure, True)
         #         self._new_problem.add_action(end_f)
         
-        # for action in self._problem.actions:
-        #     # Success version - affects globals same way as original
-        #     a_s = self.create_action_copy(action, "_s")
-        #     a_s.add_precondition(Not(waiting(action.agent.obj)))
-        #     for effect in action.effects:
-        #         if effect.value.is_true():
-        #             a_s.add_precondition(Not(self.get_waiting_version(effect.fluent)))
-        #     for fact in action.preconditions + action.preconditions_wait:
-        #         if fact.is_and():
-        #             for f in fact.args:
-        #                 a_s.add_precondition(self.get_global_version(f))
-        #         else:
-        #             a_s.add_precondition(self.get_global_version(fact))
-        #     for effect in action.effects:
-        #         a_s.add_effect(self.get_global_version(effect.fluent), effect.value)
-        #     self._new_problem.add_action(a_s)            
+        for action in self._problem.actions:
+            # Success version - affects globals same way as original
+            a_s = self.create_action_copy(action, "_s")
+            a_s.add_condition(StartTiming(), Not(waiting(action.agent.obj)))
+            for timing in action.conditions.keys():
+                for fact in action.conditions[timing]:
+                    if fact.is_and():
+                        for f in fact.args:
+                            a_s.add_condition(timing, self.get_global_version(f))
+                    else:
+                        a_s.add_condition(timing, self.get_global_version(fact))
+            for timing in action.conditions_wait.keys():
+                for fact in action.conditions_wait[timing]:
+                    if fact.is_and():
+                        for f in fact.args:
+                            a_s.add_condition(timing, self.get_global_version(f))
+                    else:
+                        a_s.add_condition(timing, self.get_global_version(fact))
+            for timing in action.effects.keys():
+                for effect in action.effects[timing]:                
+                    a_s.add_effect(timing, self.get_global_version(effect.fluent), effect.value)
 
-        #     real_preconds = []
-        #     for fact in action.preconditions:
-        #         if fact.is_and():
-        #             real_preconds += fact.args
-        #         else:
-        #             real_preconds.append(fact)
+            for timing in [StartTiming(), EndTiming()]:
+                for effect in action.effects.get(timing,[]):
+                    if effect.value.is_false():
+                        a_s.add_condition(timing, Equals(self.get_inv_count_version(effect.fluent), 0))
+                    if effect.value.is_true():
+                        for agent in self._problem.agents:
+                            a_s.add_condition(timing, Not(self.get_waiting_version(effect.fluent, agent.obj)))
+                            if timing == EndTiming():
+                                a_s.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), Not(self.get_waiting_version(effect.fluent, agent.obj)))
+            for fact in action.conditions.get(ClosedDurationInterval(StartTiming(), EndTiming()), []):
+                a_s.add_increase_effect(StartTiming(), self.get_inv_count_version(fact), 1)
+                a_s.add_decrease_effect(EndTiming(), self.get_inv_count_version(fact), 1)
+            self._new_problem.add_action(a_s)
+            
+            # # Fail start version
+            # real_start_conds = []
+            # for fact in action.conditions[StartTiming()]:
+            #     if fact.is_and():
+            #         real_start_conds += fact.args
+            #     else:
+            #         real_start_conds.append(fact)
+            # for i, fact in enumerate(real_start_conds):
+            #     a_fstart = self.create_action_copy(action, "_f_start_" + str(i))
+                
+                
+                
+            #     a_fstart.add_precondition(Not(waiting(action.agent.obj)))
+            #     for pre in action.preconditions_wait:
+            #         a_fstart.add_precondition(self.get_global_version(pre))
+            #     a_fstart.add_precondition(Not(self.get_global_version(fact)))
+            #     a_fstart.add_effect(failure, True)
+            #     self._new_problem.add_action(a_f)
 
-        #     # Fail version
-        #     for i, fact in enumerate(real_preconds):
-        #         a_f = self.create_action_copy(action, "_f_" + str(i))
-        #         a_f.add_precondition(Not(waiting(action.agent.obj)))
-        #         for pre in action.preconditions_wait:
-        #             a_f.add_precondition(self.get_global_version(pre))
-        #         a_f.add_precondition(Not(self.get_global_version(fact)))
-        #         a_f.add_effect(failure, True)
-        #         self._new_problem.add_action(a_f)
+
+
+
+
+
+
+
+
 
         #     # Wait version
         #     for i, fact in enumerate(action.preconditions_wait):
