@@ -293,7 +293,7 @@ class TestSocialLaws(TestCase):
         else:
             drive.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), free(l2))
         drive.add_condition(StartTiming(), traveldirection(a,d))
-        drive.add_condition(StartTiming(), connected(l1,l2,d))
+        drive.add_condition(EndTiming(), connected(l1,l2,d))
         #drive.add_precondition(yieldsto(l1,ly))
         #drive.add_precondition(free(ly))
         drive.add_effect(EndTiming(), at(a,l2),True)
