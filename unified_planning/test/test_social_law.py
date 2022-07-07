@@ -298,7 +298,7 @@ class TestSocialLaws(TestCase):
         #drive.add_precondition(free(ly))
         drive.add_effect(EndTiming(), at(a,l2),True)
         drive.add_effect(EndTiming(), free(l2), False)
-        drive.add_effect(EndTiming(), at(a,l1), False)
+        drive.add_effect(StartTiming(), at(a,l1), False)
         drive.add_effect(EndTiming(), free(l1), True)
         drive.agent = ExistingObjectAgent(a)
 
@@ -761,7 +761,7 @@ class TestSocialLaws(TestCase):
 
         #self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
 
-        rv = DuativeActionRobustnessVerifier(problem)
+        rv = DuativeActionRobustnessVerifier(problem, compile_away_numeric=False)
         rv_problem = rv.get_rewritten_problem()
 
         w = PDDLWriter(rv_problem)
