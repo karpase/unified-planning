@@ -293,10 +293,12 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
     this class requires a problem with durative actions (with multiple agents, where a social law is already encoded)
     and outputs a temporal planning problem whose solution encodes a counterexample to the robustness    
     '''
-    def __init__(self, problem: Problem, name: str = 'slrob'):
+    def __init__(self, problem: Problem, name: str = 'slrob', compile_away_numeric : bool = True, max_inv_count : int = 20):
         RobustnessVerifier.__init__(self, problem, name)                  
         self._w_fluent_map = {}        
         self._i_fluent_map = {}        
+        self._compile_away_numeric = compile_away_numeric
+        self._max_inv_count = max_inv_count
 
     def create_action_copy(self, action, suffix):
         """Create a new copy of an action, with name action_name_suffix, and duplicates the local preconditions/effects
@@ -350,11 +352,41 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
         else:
             return wfact            
 
-    def get_inv_count_version(self, fact):
+    def get_inv_count_version(self, fact, val=None):
         """get the invariant count copy of given fact
         """
-        ifact = self._new_problem._env.expression_manager.FluentExp(self._i_fluent_map[fact.fluent().name], fact.args)
+        if self._compile_away_numeric:
+            val_tuple = (Object("ic" + str(val), self.count_type)),
+            new_args = fact.args + val_tuple
+            ifact = self._new_problem._env.expression_manager.FluentExp(self._i_fluent_map[fact.fluent().name], new_args)
+        else:
+            ifact = self._new_problem._env.expression_manager.FluentExp(self._i_fluent_map[fact.fluent().name], fact.args)
         return ifact       
+
+    def add_increase_inv_count_version(self, fact, action : DurativeAction):
+        """ Add to action an effect which increases the inv_count of the given fact"""
+        if self._compile_away_numeric:            
+            for i in range(self._max_inv_count-1):
+                action.add_effect(StartTiming(), self.get_inv_count_version(fact, i+1), True, self.get_inv_count_version(fact,i))
+                action.add_effect(StartTiming(), self.get_inv_count_version(fact, i), False, self.get_inv_count_version(fact,i))                            
+        else:
+            action.add_increase_effect(StartTiming(), self.get_inv_count_version(fact), 1)
+
+    def add_decrease_inv_count_version(self, fact, action : DurativeAction):
+        """ Add to action an effect which increases the inv_count of the given fact"""
+        if self._compile_away_numeric:
+            for i in range(1, self._max_inv_count):
+                action.add_effect(StartTiming(), self.get_inv_count_version(fact, i), True, self.get_inv_count_version(fact,i-1))
+                action.add_effect(StartTiming(), self.get_inv_count_version(fact, i), False, self.get_inv_count_version(fact,i))                            
+        else:
+            action.add_decrease_effect(EndTiming(), self.get_inv_count_version(fact), 1)
+
+    def add_condition_inv_count_zero(self, fact, action: DurativeAction, timing : Timing):
+        """ Add a condition which checks that no one is waiting for the given invariant fact"""
+        if self._compile_away_numeric:
+            action.add_condition(timing, self.get_inv_count_version(fact, 0))
+        else:
+            action.add_condition(timing, Equals(self.get_inv_count_version(fact), 0))
 
 
     def get_conditions_at(self, conditions):
@@ -383,6 +415,17 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
         '''
         self.prepare_rewritten_problem()
         
+        if self._compile_away_numeric:
+            self.count_type = UserType("invcount_t")
+            self._new_problem._add_user_type(self.count_type)            
+            self.icnext = Fluent("icnext", _signature=[Parameter("ic", self.count_type), Parameter("icnext", self.count_type)])
+            self._new_problem.add_fluent(self.icnext, default_initial_value=False)
+
+            for i in range(self._max_inv_count):
+                self._new_problem.add_object(Object("ic" + str(i), self.count_type))
+                if i+1 < self._max_inv_count:
+                    self._new_problem.set_initial_value(self.icnext(Object("ic" + str(i), self.count_type), Object("ic" + str(i+1), self.count_type)), True)
+
 
         # Add fluents
         failure = Fluent("failure")
@@ -402,9 +445,16 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
             self._w_fluent_map[f.name] = w_fluent
             self._new_problem.add_fluent(w_fluent, default_initial_value=False)
 
-            i_fluent = Fluent("i-" + f.name, IntType(), f.signature)            
-            self._i_fluent_map[f.name] = i_fluent
-            self._new_problem.add_fluent(i_fluent, default_initial_value=0)
+            if self._compile_away_numeric:
+                i_fluent = Fluent("i-" + f.name, _signature=f.signature + [Parameter("invcount", self.count_type)])            
+                self._i_fluent_map[f.name] = i_fluent
+                self._new_problem.add_fluent(i_fluent, default_initial_value=False)
+            else:
+                i_fluent = Fluent("i-" + f.name, IntType(), f.signature)       
+                self._i_fluent_map[f.name] = i_fluent
+                self._new_problem.add_fluent(i_fluent, default_initial_value=0)     
+            
+            
 
 
         # # Add actions
@@ -464,7 +514,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
             for timing in [StartTiming(), EndTiming()]:
                 for effect in action.effects.get(timing,[]):
                     if effect.value.is_false():
-                        a_s.add_condition(timing, Equals(self.get_inv_count_version(effect.fluent), 0))
+                        self.add_condition_inv_count_zero(effect.fluent, a_s, timing)                        
                     if effect.value.is_true():
                         for agent in self._problem.agents:
                             a_s.add_condition(timing, Not(self.get_waiting_version(effect.fluent, agent.obj)))
@@ -473,8 +523,8 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
             for interval, condition in action.conditions.items():
                 if interval.lower != interval.upper:
                     for fact in condition:                
-                        a_s.add_increase_effect(StartTiming(), self.get_inv_count_version(fact), 1)
-                        a_s.add_decrease_effect(EndTiming(), self.get_inv_count_version(fact), 1)
+                        self.add_increase_inv_count_version(fact, a_s)
+                        self.add_decrease_inv_count_version(fact, a_s)                        
             self._new_problem.add_action(a_s)
             
             c_start, c_overall, c_end = self.get_conditions_at(action.conditions)
@@ -505,7 +555,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                     for effect in action.effects.get(StartTiming(),[]):
                         a_finv.add_effect(StartTiming(), self.get_global_version(effect.fluent), effect.value)
                         if effect.value.is_false():
-                            a_finv.add_condition(StartTiming(), Equals(self.get_inv_count_version(effect.fluent), 0))                            
+                            self.add_condition_inv_count_zero(effect.fluent, a_finv, StartTiming())                            
                         if effect.value.is_true():
                             for agent in self._problem.agents:
                                 a_finv.add_condition(StartTiming(), Not(self.get_waiting_version(effect.fluent, agent.obj)))
@@ -525,7 +575,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                 for effect in action.effects.get(StartTiming(),[]):
                     a_fend.add_effect(StartTiming(), effect.fluent, effect.value)
                     if effect.value.is_false():
-                        a_fend.add_condition(StartTiming(), Equals(self.get_inv_count_version(effect.fluent), 0))
+                        self.add_condition_inv_count_zero(effect.fluent, a_fend, StartTiming())                        
                     if effect.value.is_true():
                         for agent in self._problem.agents:
                             a_fend.add_condition(OpenDurationInterval(StartTiming(), EndTiming()), Not(self.get_waiting_version(effect.fluent, agent.obj)))
@@ -537,7 +587,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                             a_fend.add_condition(StartTiming(), Not(self.get_waiting_version(effect.fluent, agent.obj)))
                 a_fend.add_condition(StartTiming(), Not(waiting(action.agent.obj)))
                 a_fend.add_effect(EndTiming(), failure, True)
-                a_fend.add_increase_effect(StartTiming(), self.get_inv_count_version(fact), 1)
+                self.add_increase_inv_count_version(fact, a_fend)                
                 self._new_problem.add_action(a_fend)
 
 

@@ -772,5 +772,9 @@ class TestSocialLaws(TestCase):
             print(w.get_problem(), file = f)
             f.close()
 
+        planner = OneshotPlanner(name='tamer')
+        result = planner.solve(rv_problem)
+        
+
 
 
