@@ -606,8 +606,52 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                                 self.add_increase_inv_count_version(fact, a_finvend)
                     self._new_problem.add_action(a_finvend)
             
+            # a^w_x version - wait forever for x to be true
+            for f in self._problem.fluents:
+                a_wx = self.create_action_copy(action, "_wx_" +  f.name)
+                w_args = []
+                for arg in f._signature:   
+                    paramname = "wx_" + arg.name
+                    w_param = Parameter(paramname, arg.type)
+                    a_wx._parameters[paramname] = w_param
+                    w_args.append(w_param)
+                a_wx.add_condition(StartTiming(), Not(waiting(action.agent.obj)))
+
+                w_fact = self._new_problem._env.expression_manager.FluentExp(f, w_args)
+                a_wx.add_effect(StartTiming(), failure, True)
+                a_wx.add_effect(StartTiming(), waiting(action.agent.obj), True)
+                a_wx.add_condition(StartTiming(), Not(self.get_global_version(w_fact)))
+                a_wx.add_effect(StartTiming(), self.get_waiting_version(w_fact, action.agent.obj), True)
+                self._new_problem.add_action(a_wx)
+
+            # a_waiting version - dummy version while agent is waiting
+            a_waiting = self.create_action_copy(action, "_waiting")
+            a_waiting.add_condition(StartTiming(), waiting(action.agent.obj))
+            self._new_problem.add_action(a_waiting)
 
 
+        for i, agent in enumerate(self._problem.agents):
+            # Create end_s_i action
+            end_s_action = DurativeAction("end_s_" + str(i))
+            end_s_action.add_condition(StartTiming(), Not(fin(agent.obj)))
+            for g in agent.goals:
+                end_s_action.add_condition(StartTiming(), self.get_local_version(g,agent.obj))
+                end_s_action.add_condition(StartTiming(), self.get_global_version(g))
+            end_s_action.add_effect(EndTiming(), fin(agent.obj), True)
+            end_s_action.add_effect(EndTiming(), act, False)            
+            self._new_problem.add_action(end_s_action)
+
+            # Create end_f_i action
+            for j, gf in enumerate(agent.goals):
+                end_f_action = DurativeAction("end_f_" + str(i) + "_" + str(j))
+                end_f_action.add_condition(StartTiming(), Not(self.get_global_version(gf)))
+                end_f_action.add_condition(StartTiming(), Not(fin(agent.obj)))
+                for g in agent.goals:
+                    end_f_action.add_condition(StartTiming(), self.get_local_version(g,agent.obj))                
+                end_f_action.add_effect(EndTiming(), fin(agent.obj), True)
+                end_f_action.add_effect(EndTiming(), failure, True)
+                end_f_action.add_effect(EndTiming(), act, False)            
+                self._new_problem.add_action(end_f_action)
 
 
 
