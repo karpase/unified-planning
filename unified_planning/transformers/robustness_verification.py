@@ -607,17 +607,10 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                     self._new_problem.add_action(a_finvend)
             
             # a^w_x version - wait forever for x to be true
-            for f in self._problem.fluents:
+            for w_fact in cw_start:
                 a_wx = self.create_action_copy(action, "_wx_" +  f.name)
-                w_args = []
-                for arg in f._signature:   
-                    paramname = "wx_" + arg.name
-                    w_param = Parameter(paramname, arg.type)
-                    a_wx._parameters[paramname] = w_param
-                    w_args.append(w_param)
                 a_wx.add_condition(StartTiming(), Not(waiting(action.agent.obj)))
 
-                w_fact = self._new_problem._env.expression_manager.FluentExp(f, w_args)
                 a_wx.add_effect(StartTiming(), failure, True)
                 a_wx.add_effect(StartTiming(), waiting(action.agent.obj), True)
                 a_wx.add_condition(StartTiming(), Not(self.get_global_version(w_fact)))
