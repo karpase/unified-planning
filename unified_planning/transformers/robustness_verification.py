@@ -366,6 +366,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
 
     def add_increase_inv_count_version(self, fact, action : DurativeAction):
         """ Add to action an effect which increases the inv_count of the given fact"""
+        return
         if self._compile_away_numeric:            
             for i in range(self._max_inv_count-1):
                 action.add_effect(StartTiming(), self.get_inv_count_version(fact, i+1), True, self.get_inv_count_version(fact,i))
@@ -375,6 +376,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
 
     def add_decrease_inv_count_version(self, fact, action : DurativeAction):
         """ Add to action an effect which increases the inv_count of the given fact"""
+        return
         if self._compile_away_numeric:
             for i in range(1, self._max_inv_count):
                 action.add_effect(StartTiming(), self.get_inv_count_version(fact, i), True, self.get_inv_count_version(fact,i-1))
@@ -384,16 +386,21 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
 
     def add_condition_inv_count_zero(self, fact, action: DurativeAction, timing : Timing, negate : bool, val : int):
         """ Add a condition which checks that no one is waiting for the given invariant fact"""
+        return
         if self._compile_away_numeric:
             bcond = self.get_inv_count_version(fact, val)
-        else:            
-            bcond =  Equals(self.get_inv_count_version(fact), val)
+            if negate:
+                cond = Not(bcond)
+            else:
+                cond = bcond
 
-        if negate:
-            cond = Not(bcond)
-        else:
-            cond = bcond
+        else:    
+            if negate:
+                cond = GT(self.get_inv_count_version(fact), val)
+            else:        
+                cond = Equals(self.get_inv_count_version(fact), val)
 
+        
         action.add_condition(timing, cond)
 
 
