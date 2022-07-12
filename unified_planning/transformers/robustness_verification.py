@@ -382,12 +382,12 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
         else:
             action.add_decrease_effect(EndTiming(), self.get_inv_count_version(fact), 1)
 
-    def add_condition_inv_count_zero(self, fact, action: DurativeAction, timing : Timing, negate : bool = False):
+    def add_condition_inv_count_zero(self, fact, action: DurativeAction, timing : Timing, negate : bool, val : int):
         """ Add a condition which checks that no one is waiting for the given invariant fact"""
         if self._compile_away_numeric:
-            bcond = self.get_inv_count_version(fact, 0)
-        else:
-            bcond =  Equals(self.get_inv_count_version(fact), 0)
+            bcond = self.get_inv_count_version(fact, val)
+        else:            
+            bcond =  Equals(self.get_inv_count_version(fact), val)
 
         if negate:
             cond = Not(bcond)
@@ -487,7 +487,10 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
             for timing in [StartTiming(), EndTiming()]:
                 for effect in action.effects.get(timing,[]):
                     if effect.value.is_false():
-                        self.add_condition_inv_count_zero(effect.fluent, a_s, timing)                        
+                        if timing == StartTiming():
+                            self.add_condition_inv_count_zero(effect.fluent, a_s, timing, False, 0)
+                        else:
+                            self.add_condition_inv_count_zero(effect.fluent, a_s, timing, False, 1)
                     if effect.value.is_true():
                         for agent in self._problem.agents:
                             a_s.add_condition(timing, Not(self.get_waiting_version(effect.fluent, agent.obj)))
@@ -528,7 +531,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                     for effect in action.effects.get(StartTiming(),[]):
                         a_finv.add_effect(StartTiming(), self.get_global_version(effect.fluent), effect.value)
                         if effect.value.is_false():
-                            self.add_condition_inv_count_zero(effect.fluent, a_finv, StartTiming())                            
+                            self.add_condition_inv_count_zero(effect.fluent, a_finv, StartTiming(), False, 0)                            
                         if effect.value.is_true():
                             for agent in self._problem.agents:
                                 a_finv.add_condition(StartTiming(), Not(self.get_waiting_version(effect.fluent, agent.obj)))
@@ -548,7 +551,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                 for effect in action.effects.get(StartTiming(),[]):
                     a_fend.add_effect(StartTiming(), self.get_global_version(effect.fluent), effect.value)
                     if effect.value.is_false():
-                        self.add_condition_inv_count_zero(effect.fluent, a_fend, StartTiming())                        
+                        self.add_condition_inv_count_zero(effect.fluent, a_fend, StartTiming(), False, 0)
                     if effect.value.is_true():
                         for agent in self._problem.agents:
                             a_fend.add_condition(OpenDurationInterval(StartTiming(), EndTiming()), Not(self.get_waiting_version(effect.fluent, agent.obj)))
@@ -570,7 +573,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                     a_finvstart.add_condition(StartTiming(), Not(waiting(action.agent.obj)))
                     for c in c_start + cw_start:
                         a_fend.add_condition(StartTiming(), self.get_global_version(c))
-                    self.add_condition_inv_count_zero(effect.fluent, a_finvstart, StartTiming(), True)
+                    self.add_condition_inv_count_zero(effect.fluent, a_finvstart, StartTiming(), True, 0)
                     a_finvstart.add_effect(StartTiming(), failure, True)
                     self._new_problem.add_action(a_finvstart)
 
@@ -585,12 +588,12 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                         a_finvend.add_condition(OpenDurationInterval(StartTiming(), EndTiming()), self.get_global_version(c))
                     for c in c_end:
                         a_finvend.add_condition(EndTiming(), self.get_global_version(c))
-                    self.add_condition_inv_count_zero(effect.fluent, a_finvend, EndTiming(), True)
+                    self.add_condition_inv_count_zero(effect.fluent, a_finvend, EndTiming(), True, 0)
 
                     for seffect in action.effects.get(StartTiming(),[]):
                         a_finvend.add_effect(StartTiming(), self.get_global_version(seffect.fluent), seffect.value)
                         if seffect.value.is_false():
-                            self.add_condition_inv_count_zero(seffect.fluent, a_finvend, StartTiming())                        
+                            self.add_condition_inv_count_zero(seffect.fluent, a_finvend, StartTiming(), False, 0)                     
                         if seffect.value.is_true():
                             for agent in self._problem.agents:
                                 a_finvend.add_condition(StartTiming(), Not(self.get_waiting_version(seffect.fluent, agent.obj)))
@@ -598,7 +601,7 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
                     for seffect in action.effects.get(EndTiming(),[]):
                         a_finvend.add_effect(EndTiming(), self.get_global_version(seffect.fluent), seffect.value)
 
-                    self.add_condition_inv_count_zero(effect.fluent, a_finvend, StartTiming(), True)
+                    #self.add_condition_inv_count_zero(effect.fluent, a_finvend, StartTiming(), True, 0)
                     a_finvend.add_effect(StartTiming(), failure, True)
                     for interval, condition in action.conditions.items():
                         if interval.lower != interval.upper:
@@ -625,25 +628,25 @@ class DuativeActionRobustnessVerifier(RobustnessVerifier):
 
         for i, agent in enumerate(self._problem.agents):
             # Create end_s_i action
-            end_s_action = DurativeAction("end_s_" + str(i))
-            end_s_action.add_condition(StartTiming(), Not(fin(agent.obj)))
+            end_s_action = InstantaneousAction("end_s_" + str(i))
+            end_s_action.add_precondition(Not(fin(agent.obj)))
             for g in agent.goals:
-                end_s_action.add_condition(StartTiming(), self.get_local_version(g,agent.obj))
-                end_s_action.add_condition(StartTiming(), self.get_global_version(g))
-            end_s_action.add_effect(EndTiming(), fin(agent.obj), True)
-            end_s_action.add_effect(EndTiming(), act, False)            
+                end_s_action.add_precondition(self.get_local_version(g,agent.obj))
+                end_s_action.add_precondition(self.get_global_version(g))
+            end_s_action.add_effect(fin(agent.obj), True)
+            end_s_action.add_effect(act, False)            
             self._new_problem.add_action(end_s_action)
 
             # Create end_f_i action
             for j, gf in enumerate(agent.goals):
-                end_f_action = DurativeAction("end_f_" + str(i) + "_" + str(j))
-                end_f_action.add_condition(StartTiming(), Not(self.get_global_version(gf)))
-                end_f_action.add_condition(StartTiming(), Not(fin(agent.obj)))
+                end_f_action = InstantaneousAction("end_f_" + str(i) + "_" + str(j))
+                end_f_action.add_precondition(Not(self.get_global_version(gf)))
+                end_f_action.add_precondition(Not(fin(agent.obj)))
                 for g in agent.goals:
-                    end_f_action.add_condition(StartTiming(), self.get_local_version(g,agent.obj))                
-                end_f_action.add_effect(EndTiming(), fin(agent.obj), True)
-                end_f_action.add_effect(EndTiming(), failure, True)
-                end_f_action.add_effect(EndTiming(), act, False)            
+                    end_f_action.add_precondition(self.get_local_version(g,agent.obj))                
+                end_f_action.add_effect(fin(agent.obj), True)
+                end_f_action.add_effect(failure, True)
+                end_f_action.add_effect(act, False)            
                 self._new_problem.add_action(end_f_action)
 
 
