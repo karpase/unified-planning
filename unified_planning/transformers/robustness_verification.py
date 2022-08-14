@@ -170,6 +170,7 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
 
         # Add fluents
         failure = Fluent("failure")
+        crash = Fluent("crash")
         act = Fluent("act")
         fin = Fluent("fin", _signature=[Parameter("a", self.agent_type)])
         waiting = Fluent("waiting", _signature=[Parameter("a", self.agent_type)])
@@ -177,6 +178,7 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
         self.act_pred = act
         
         self._new_problem.add_fluent(failure, default_initial_value=False)
+        self._new_problem.add_fluent(crash, default_initial_value=False)
         self._new_problem.add_fluent(act, default_initial_value=True)
         self._new_problem.add_fluent(fin, default_initial_value=False)
         self._new_problem.add_fluent(waiting, default_initial_value=False)
@@ -223,6 +225,7 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
             # Success version - affects globals same way as original
             a_s = self.create_action_copy(action, "_s")
             a_s.add_precondition(Not(waiting(action.agent.obj)))
+            a_s.add_precondition(Not(crash))
             for effect in action.effects:
                 if effect.value.is_true():
                     a_s.add_precondition(Not(self.get_waiting_version(effect.fluent)))
@@ -234,7 +237,7 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
                     a_s.add_precondition(self.get_global_version(fact))
             for effect in action.effects:
                 a_s.add_effect(self.get_global_version(effect.fluent), effect.value)
-            self._new_problem.add_action(a_s)            
+            self._new_problem.add_action(a_s)
 
             real_preconds = []
             for fact in action.preconditions:
@@ -247,15 +250,18 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
             for i, fact in enumerate(real_preconds):
                 a_f = self.create_action_copy(action, "_f_" + str(i))
                 a_f.add_precondition(Not(waiting(action.agent.obj)))
+                a_f.add_precondition(Not(crash))
                 for pre in action.preconditions_wait:
                     a_f.add_precondition(self.get_global_version(pre))
                 a_f.add_precondition(Not(self.get_global_version(fact)))
                 a_f.add_effect(failure, True)
+                a_f.add_effect(crash, True)
                 self._new_problem.add_action(a_f)
 
             # Wait version
             for i, fact in enumerate(action.preconditions_wait):
                 a_w = self.create_action_copy(action, "_w_" + str(i))
+                a_w.add_precondition(Not(crash))
                 a_w.add_precondition(Not(waiting(action.agent.obj)))
                 a_w.add_precondition(Not(self.get_global_version(fact)))
                 assert not fact.is_not()
@@ -265,9 +271,14 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
                 self._new_problem.add_action(a_w)
 
             # Phantom version            
-            a_p = self.create_action_copy(action, "_p")
-            a_p.add_precondition(waiting(action.agent.obj))
-            self._new_problem.add_action(a_p)
+            a_pc = self.create_action_copy(action, "_pc")
+            a_pc.add_precondition(crash)
+            self._new_problem.add_action(a_pc)
+
+            # Phantom version            
+            a_pw = self.create_action_copy(action, "_pw")
+            a_pw.add_precondition(waiting(action.agent.obj))
+            self._new_problem.add_action(a_pw)
 
 
 
