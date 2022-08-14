@@ -293,12 +293,12 @@ class TestSocialLaws(TestCase):
         else:
             drive.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), free(l2))
         drive.add_condition(StartTiming(), traveldirection(a,d))
-        drive.add_condition(StartTiming(), connected(l1,l2,d))
+        drive.add_condition(EndTiming(), connected(l1,l2,d))
         #drive.add_precondition(yieldsto(l1,ly))
         #drive.add_precondition(free(ly))
         drive.add_effect(EndTiming(), at(a,l2),True)
         drive.add_effect(EndTiming(), free(l2), False)
-        drive.add_effect(EndTiming(), at(a,l1), False)
+        drive.add_effect(StartTiming(), at(a,l1), False)
         drive.add_effect(EndTiming(), free(l1), True)
         drive.agent = ExistingObjectAgent(a)
 
@@ -761,7 +761,7 @@ class TestSocialLaws(TestCase):
 
         #self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
 
-        rv = DuativeActionRobustnessVerifier(problem)
+        rv = DuativeActionRobustnessVerifier(problem, compile_away_numeric=False)
         rv_problem = rv.get_rewritten_problem()
 
         w = PDDLWriter(rv_problem)
@@ -771,6 +771,10 @@ class TestSocialLaws(TestCase):
         with open("d_problem.pddl","w") as f:
             print(w.get_problem(), file = f)
             f.close()
+
+        planner = OneshotPlanner(name='tamer')
+        result = planner.solve(rv_problem)
+        
 
 
 
