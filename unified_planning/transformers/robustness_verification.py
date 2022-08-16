@@ -202,14 +202,14 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
             self._new_problem.add_action(end_s)
 
             
-            end_w = InstantaneousAction("end_w_" + agent.name)
-            end_w.add_precondition(Not(fin(agent.obj)))
-            end_w.add_precondition(waiting(agent.obj))
-            for goal in agent.goals:                
-                end_w.add_precondition(self.get_local_version(goal, agent.obj))
-            end_w.add_effect(fin(agent.obj), True)
-            end_w.add_effect(act, False)
-            self._new_problem.add_action(end_w)
+            # end_w = InstantaneousAction("end_w_" + agent.name)
+            # end_w.add_precondition(Not(fin(agent.obj)))
+            # end_w.add_precondition(waiting(agent.obj))
+            # for goal in agent.goals:                
+            #     end_w.add_precondition(self.get_local_version(goal, agent.obj))
+            # end_w.add_effect(fin(agent.obj), True)
+            # end_w.add_effect(act, False)
+            # self._new_problem.add_action(end_w)
 
             for i, goal in enumerate(agent.goals):
                 end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
