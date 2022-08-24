@@ -21,7 +21,7 @@ from unified_planning.shortcuts import *
 from unified_planning.test import TestCase, main
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.model import Agent
-from unified_planning.transformers import InstantaneousActionRobustnessVerifier, DuativeActionRobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection, SocialLaw
+from unified_planning.transformers import InstantaneousActionRobustnessVerifier, DuativeActionRobustnessVerifier, NegativeConditionsRemover, SingleAgentProjection, SocialLaw, WaitingActionRobustnessVerifier
 
 
 # (define (domain intersection)
@@ -440,7 +440,8 @@ class TestSocialLaws(TestCase):
             #    result = planner.solve(sap_problem)
             #    self.assertEqual(result.status, up.solvers.PlanGenerationResultStatus.SOLVED_SATISFICING)
 
-        rv = InstantaneousActionRobustnessVerifier(ref_problem)
+        # rv = InstantaneousActionRobustnessVerifier(problem)
+        rv = WaitingActionRobustnessVerifier(problem)
 
         rv_problem = rv.get_rewritten_problem()
 
@@ -471,7 +472,7 @@ class TestSocialLaws(TestCase):
 
     def test_intersection_problem_pddl(self):
         reader = PDDLReader()
-        
+
         domain_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'domain.pddl')
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, 'intersection', 'i1', 'problem.pddl')
         problem = reader.parse_problem(domain_filename, problem_filename)
@@ -511,7 +512,8 @@ class TestSocialLaws(TestCase):
         problem.action("drive").agent = agent_a
         problem.action("arrive").agent = agent_a
 
-        rv = InstantaneousActionRobustnessVerifier(problem)
+        # rv = InstantaneousActionRobustnessVerifier(problem)
+        rv = WaitingActionRobustnessVerifier(problem)
 
         rv_problem = rv.get_rewritten_problem()
 
@@ -713,7 +715,6 @@ class TestSocialLaws(TestCase):
         a12.add_effect(nf3, True)
         p.add_action(a12)
 
-
         a21 = InstantaneousAction("a21")
         a21.agent = ag2
         a21.add_effect(f2, True)
@@ -745,35 +746,35 @@ class TestSocialLaws(TestCase):
 
 
 
-    def test_intersection_problem_durative(self):
-        problem = self.create_durative_intersection_problem_interface(use_waiting=True)
-
-        self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
-        self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
-        self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
-        self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
-
-        #self.add_yields(problem, [("south-ent", "east-ent"),("north-ent", "west-ent")])
-        
-        #planner = OneshotPlanner(name='fast_downward')
-        #l = SocialLaw(problem, planner)
-        #status = l.is_robust()
-
-        #self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
-
-        rv = DuativeActionRobustnessVerifier(problem, compile_away_numeric=False)
-        rv_problem = rv.get_rewritten_problem()
-
-        w = PDDLWriter(rv_problem)
-        with open("d_domain.pddl","w") as f:
-            print(w.get_domain(), file = f)
-            f.close()
-        with open("d_problem.pddl","w") as f:
-            print(w.get_problem(), file = f)
-            f.close()
-
-        planner = OneshotPlanner(name='tamer')
-        result = planner.solve(rv_problem)
+    # def test_intersection_problem_durative(self):
+    #     problem = self.create_durative_intersection_problem_interface(use_waiting=True)
+    #
+    #     self.add_car(problem, "c1", "south-ent", "north-ex", "north", True)
+    #     self.add_car(problem, "c2", "north-ent", "south-ex", "south", True)
+    #     self.add_car(problem, "c3", "west-ent", "east-ex", "east", True)
+    #     self.add_car(problem, "c4", "east-ent", "west-ex", "west", True)
+    #
+    #     #self.add_yields(problem, [("south-ent", "east-ent"),("north-ent", "west-ent")])
+    #
+    #     #planner = OneshotPlanner(name='fast_downward')
+    #     #l = SocialLaw(problem, planner)
+    #     #status = l.is_robust()
+    #
+    #     #self.assertEqual(status, up.transformers.social_law.SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_DEADLOCK)
+    #
+    #     rv = DuativeActionRobustnessVerifier(problem, compile_away_numeric=False)
+    #     rv_problem = rv.get_rewritten_problem()
+    #
+    #     w = PDDLWriter(rv_problem)
+    #     with open("d_domain.pddl","w") as f:
+    #         print(w.get_domain(), file = f)
+    #         f.close()
+    #     with open("d_problem.pddl","w") as f:
+    #         print(w.get_problem(), file = f)
+    #         f.close()
+    #
+    #     planner = OneshotPlanner(name='tamer')
+    #     result = planner.solve(rv_problem)
         
 
 
